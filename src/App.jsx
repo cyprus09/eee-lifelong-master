@@ -1,7 +1,9 @@
-import Login from "./pages/user/loginPage";
+import HomePage from "./pages/HomePage"
 
 export default function App() {
   return (
-    <Login></Login>
+    <>
+    <HomePage></HomePage>
+    </>
   )
 }
