@@ -9,6 +9,10 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { Button } from "@/components/ui/button";
+import loginImage from "../../assets/loginImage.png";
+import eventsImage from "../../assets/carousel/events.png"
+import careerOpportunities from "../../assets/carousel/careerOpportunities.png"
+import knowledgeSharing from "../../assets/carousel/knowledgeSharing.png"
 
 const CarouselSlides = () => {
   const [api, setApi] = useState();
@@ -20,28 +24,28 @@ const CarouselSlides = () => {
     {
       title: "Welcome to EEE Community",
       description: "Connect with your batch mates and alumni",
-      image: "/api/placeholder/1200/600",
+      image: loginImage,
     },
     {
       title: "Upcoming Events",
       description: "Stay updated with latest community events",
-      image: "/api/placeholder/1200/600",
+      image: eventsImage,
     },
     {
       title: "Career Opportunities",
       description: "Explore job opportunities from alumni network",
-      image: "/api/placeholder/1200/600",
+      image: careerOpportunities,
     },
     {
       title: "Knowledge Sharing",
       description: "Learn from industry experts in your field",
-      image: "/api/placeholder/1200/600",
+      image: knowledgeSharing,
     },
-    {
-      title: "Community Projects",
-      description: "Collaborate on innovative engineering projects",
-      image: "/api/placeholder/1200/600",
-    },
+    // {
+    //   title: "Community Projects",
+    //   description: "Collaborate on innovative engineering projects",
+    //   image: "/api/placeholder/1200/600",
+    // },
   ];
 
   useEffect(() => {
@@ -58,7 +62,7 @@ const CarouselSlides = () => {
   const plugin = React.useMemo(
     () =>
       Autoplay({
-        delay: 5000,
+        delay: 2000,
         stopOnInteraction: true,
         stopOnMouseEnter: true,
       }),

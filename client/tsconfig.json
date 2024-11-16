@@ -19,7 +19,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/custom.d.ts", "src/pages/HomePage.jsx", "src/pages/user/loginPage.jsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/custom.d.ts", "src/pages/HomePage.jsx", "src/pages/user/LoginPage.jsx", "src/components/common/Navbar.jsx", "src/components/common/Footer.jsx", "src/components/common/CarouselSlides.jsx"],
   "references": [
     {
       "path": "./tsconfig.app.json"
