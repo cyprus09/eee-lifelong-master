@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 
-const Login = () => {
+const LoginPage = () => {
   return (
     <div className="flex flex-col lg:flex-row w-full min-h-screen">
       <div className="relative w-full lg:w-1/2 h-64 lg:h-screen">
@@ -94,7 +94,7 @@ const Login = () => {
         </Card>
 
         <p className="text-center text-muted-foreground mt-8">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Button variant="link" className="p-0 h-auto font-semibold">
             Sign up for free
           </Button>
@@ -104,4 +104,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default LoginPage;
