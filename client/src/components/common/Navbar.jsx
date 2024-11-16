@@ -8,6 +8,9 @@ import { Menu, Home } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { nanoid } from "nanoid";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const landings = [
   {
@@ -28,6 +31,27 @@ const landings = [
 ];
 
 const Navbar = () => {
+  const navigate = useNavigate();
+  const { signOut, user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/login");
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error logging out",
+        description: "There was a problem logging out. Please try again.",
+      });
+      console.error("Error logging out:", error);
+    }
+  };
+
   return (
     <Card className="container sticky top-4 bg-card py-3 px-4 border-0 flex flex-col rounded-2xl mt-5 my-auto mx-auto">
       <div className="flex items-center justify-between gap-6">
@@ -39,42 +63,16 @@ const Navbar = () => {
           <li>
             <a href="#faqs">FAQs</a>
           </li>
-          {/* <li>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <span className="cursor-pointer">Pages</span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {landings.map((page) => (
-                  <DropdownMenuItem key={page.id}>
-                    <a href={page.route}>{page.title}</a>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </li> */}
         </ul>
 
         <div className="flex items-center">
-          <Button variant="secondary" className="hidden md:block px-2">
-            <a href="../pages/user/LoginPage">Login</a>
+          {/* Show logout when user is logged in */}
+          <Button variant="secondary" className="hidden md:block px-2" onClick={handleLogout}>
+            Logout
           </Button>
-          <Button className="hidden md:block ml-2 mr-2">Register</Button>
 
+          {/* Mobile menu */}
           <div className="flex md:hidden mr-2 items-center gap-2">
-            {/* <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <span className="py-2 px-2 bg-gray-100 rounded-md">Pages</span>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {landings.map((page) => (
-                  <DropdownMenuItem key={page.id}>
-                    <a href={page.route}>{page.title}</a>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu> */}
-
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon">
@@ -88,14 +86,28 @@ const Navbar = () => {
                 <DropdownMenuItem>
                   <a href="#faqs">FAQs</a>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Button variant="secondary" className="w-full text-sm">
-                    Login
-                  </Button>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Button className="w-full text-sm">Register</Button>
-                </DropdownMenuItem>
+                {user ? (
+                  // Show logout in mobile menu when user is logged in
+                  <DropdownMenuItem>
+                    <Button variant="secondary" className="w-full text-sm" onClick={handleLogout}>
+                      Logout
+                    </Button>
+                  </DropdownMenuItem>
+                ) : (
+                  // Show login/register in mobile menu when no user is logged in
+                  <>
+                    <DropdownMenuItem>
+                      <Button variant="secondary" className="w-full text-sm">
+                        <Link to="/login">Login</Link>
+                      </Button>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Button className="w-full text-sm">
+                        <Link to="/register">Register</Link>
+                      </Button>
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

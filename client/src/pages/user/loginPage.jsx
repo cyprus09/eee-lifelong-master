@@ -1,13 +1,46 @@
-import React from "react";
+import { React, useState } from "react";
 import loginImage from "../../assets/loginImage.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 const LoginPage = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { signIn, signInWithGoogle } = useAuth();
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    try {
+      setError("");
+      setLoading(true);
+      const { error } = await signIn({ email, password });
+      if (error) throw error;
+      navigate("/home");
+    } catch (error) {
+      setError("Failed to sign in: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setError("");
+      setLoading(true);
+      await signInWithGoogle();
+    } catch (error) {
+      setError("Failed to sign in with Google: " + error.message);
+      setLoading(false);
+    }
+  };
   return (
     <div className="flex flex-col lg:flex-row w-full min-h-screen">
       <div className="relative w-full lg:w-1/2 h-64 lg:h-screen">
@@ -26,53 +59,54 @@ const LoginPage = () => {
       <div className="w-full lg:w-1/2 bg-background flex flex-col p-6 md:p-12 lg:p-20 justify-between">
         <h1 className="text-xl text-foreground font-semibold mb-8 mx-auto">LifeLong Learning @EEE</h1>
 
-        <Card className="w-full max-w-md mx-auto">
+        <Card className="w-full max-w-md mx-auto my-0">
           <CardHeader>
             <CardTitle>Login</CardTitle>
             <CardDescription>Welcome Back! Please enter your details.</CardDescription>
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </CardHeader>
           <CardContent>
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="Enter your email" required />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="Enter your email"
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="Enter your password" required />
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    required
+                  />
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" />
-                  <label htmlFor="remember" className="text-sm text-muted-foreground">
-                    Remember Me
-                  </label>
-                </div>
-                <Button variant="ghost" className="p-0 h-auto">
-                  Forgot Password?
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                <Button className="w-full" type="submit">
-                  Log In
-                </Button>
-                <Button className="w-full bg-white" variant="outline">
+                <Button className="w-full bg-white" variant="outline" onClick={() => navigate("/register")}>
                   Register
                 </Button>
               </div>
+
+              <Button className="w-full" type="submit" disabled={loading}>
+                {loading ? "Loading..." : "Log In"}
+              </Button>
             </form>
 
-            <div className="card w-full overflow-hidden flex my-8 mx-11 flex items-center">
+            <div className="card w-full overflow-hidden flex my-8 mx-11 items-center">
               <Separator className="w-1/3" />
               <span className="px-4 text-muted-foreground">or</span>
               <Separator className="w-1/3" />
             </div>
 
-            <Button className="w-full bg-white" variant="outline">
+            <Button className="w-full bg-white" variant="outline" onClick={handleGoogleSignIn} disabled={loading}>
               <svg
                 className="mr-2 h-4 w-4"
                 aria-hidden="true"
@@ -92,13 +126,6 @@ const LoginPage = () => {
             </Button>
           </CardContent>
         </Card>
-
-        <p className="text-center text-muted-foreground mt-8">
-          Don&apos;t have an account?{" "}
-          <Button variant="link" className="p-0 h-auto font-semibold">
-            Sign up for free
-          </Button>
-        </p>
       </div>
     </div>
   );
