@@ -19,7 +19,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/custom.d.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/custom.d.ts", "src/pages/HomePage.jsx", "src/pages/user/loginPage.jsx"],
   "references": [
     {
       "path": "./tsconfig.app.json"

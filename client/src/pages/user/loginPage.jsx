@@ -94,7 +94,7 @@ const LoginPage = () => {
         </Card>
 
         <p className="text-center text-muted-foreground mt-8">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Button variant="link" className="p-0 h-auto font-semibold">
             Sign up for free
           </Button>
