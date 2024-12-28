@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/user/LoginPage";
-import RegisterPage from "./pages/user/RegisterPage";
+import HomePage from "./pages/common/HomePage";
+import LoginPage from "./pages/common/LoginPage";
+import RegisterPage from "./pages/common/RegisterPage";
+import ProfilePage from "./pages/common/ProfilePage";
+import EventsPage from "./pages/common/EventsPage";
 
 export default function App() {
   return (
@@ -21,6 +23,8 @@ export default function App() {
             }
           />
           <Route path="/" element={<Navigate to="/home" />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/events" element={<EventsPage />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

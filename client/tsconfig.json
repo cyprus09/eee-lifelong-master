@@ -19,7 +19,17 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/custom.d.ts", "src/pages/HomePage.jsx", "src/pages/user/LoginPage.jsx", "src/components/common/Navbar.jsx", "src/components/common/Footer.jsx", "src/components/common/CarouselSlides.jsx"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/custom.d.ts",
+    "src/pages/common/HomePage.jsx",
+    "src/pages/common/LoginPage.jsx",
+    "src/components/common/Navbar.jsx",
+    "src/components/common/Footer.jsx",
+    "src/components/common/CarouselSlides.jsx",
+    "src/hooks/use-toast.tsx"
+  ],
   "references": [
     {
       "path": "./tsconfig.app.json"

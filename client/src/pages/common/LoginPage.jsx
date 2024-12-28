@@ -56,14 +56,16 @@ const LoginPage = () => {
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 bg-background flex flex-col p-6 md:p-12 lg:p-20 justify-between">
-        <h1 className="text-xl text-foreground font-semibold mb-8 mx-auto">LifeLong Learning @EEE</h1>
+      <div className="w-full lg:w-1/2 bg-background flex flex-col p-6 md:p-12 lg:p-20 justify-center">
+        <h1 className="text-xl text-foreground font-semibold mb-8 text-center">LifeLong Learning @EEE</h1>
 
-        <Card className="w-full max-w-md mx-auto my-0">
+        <Card className="w-full max-w-md mx-auto">
           <CardHeader>
-            <CardTitle>Login</CardTitle>
-            <CardDescription>Welcome Back! Please enter your details.</CardDescription>
-            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+            <CardTitle className="text-m font-bold">Login</CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Welcome Back! Please enter your details.
+            </CardDescription>
+            {error && <p className= "text-sm bg-red-100 border-l-4 border-red-500 text-red-700 p-2 rounded-lg">{error}</p>}
           </CardHeader>
           <CardContent>
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -90,23 +92,27 @@ const LoginPage = () => {
                     required
                   />
                 </div>
+                <Button className="w-full" type="submit" disabled={loading}>
+                  {loading ? "Loading..." : "Log In"}
+                </Button>
                 <Button className="w-full bg-white" variant="outline" onClick={() => navigate("/register")}>
                   Register
                 </Button>
               </div>
-
-              <Button className="w-full" type="submit" disabled={loading}>
-                {loading ? "Loading..." : "Log In"}
-              </Button>
             </form>
 
-            <div className="card w-full overflow-hidden flex my-8 mx-11 items-center">
+            <div className="flex w-full items-center my-6 mx-11">
               <Separator className="w-1/3" />
               <span className="px-4 text-muted-foreground">or</span>
               <Separator className="w-1/3" />
             </div>
 
-            <Button className="w-full bg-white" variant="outline" onClick={handleGoogleSignIn} disabled={loading}>
+            <Button
+              className="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+              variant="outline"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+            >
               <svg
                 className="mr-2 h-4 w-4"
                 aria-hidden="true"

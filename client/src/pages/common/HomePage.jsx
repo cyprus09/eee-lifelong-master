@@ -1,7 +1,7 @@
 import React from "react";
-import { useAuth } from "../contexts/AuthContext";
-import Navbar from "../components/common/Navbar";
-import Footer from "../components/common/Footer";
+import { useAuth } from "../../contexts/AuthContext";
+import Navbar from "@/components/common/Navbar";
+import Footer from "../../components/common/Footer";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,10 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import CarouselSlides from "@/components/common/CarouselSlides";
+import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
   const { user } = useAuth();
   const [date, setDate] = React.useState(new Date());
+  const navigate = useNavigate();
 
   // Mock data - replace with real data from your backend
   const userProfile = {
@@ -68,7 +70,7 @@ const HomePage = () => {
                   <h3 className="font-semibold text-lg">{userProfile.name}</h3>
                   <p className="text-sm text-muted-foreground">{userProfile.batch}</p>
                 </div>
-                <Button variant="outline" className="w-full">
+                <Button variant="outline" className="w-full" onClick={() => navigate("/profile")}>
                   Edit Profile
                 </Button>
               </div>
@@ -113,8 +115,6 @@ const HomePage = () => {
               <CarouselSlides />
             </CardContent>
           </Card>
-
-          {/* Add more main content here */}
         </div>
 
         {/* Right Sidebar - Calendar & Events */}

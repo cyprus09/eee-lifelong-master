@@ -55,18 +55,20 @@ const Navbar = () => {
   return (
     <Card className="container sticky top-4 bg-card py-3 px-4 border-0 flex flex-col rounded-2xl mt-5 my-auto mx-auto">
       <div className="flex items-center justify-between gap-6">
-        <Home className="text-primary cursor-pointer" size={24} />
+        <Home onClick={() => navigate("/home")} className="text-primary cursor-pointer" size={24} />
         <ul className="hidden md:flex gap-10 text-card-foreground">
           <li className="text-primary font-medium">
-            <a href="#home">Home</a>
+            <a href="/">Home</a>
           </li>
           <li>
             <a href="#faqs">FAQs</a>
           </li>
+          <li>
+            <a href="/events">Events</a>
+          </li>
         </ul>
 
         <div className="flex items-center">
-          {/* Show logout when user is logged in */}
           <Button variant="secondary" className="hidden md:block px-2" onClick={handleLogout}>
             Logout
           </Button>
@@ -81,13 +83,15 @@ const Navbar = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>
-                  <a href="#home">Home</a>
+                  <a href="/">Home</a>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <a href="#faqs">FAQs</a>
                 </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <a href="#events">Events</a>
+                </DropdownMenuItem>
                 {user ? (
-                  // Show logout in mobile menu when user is logged in
                   <DropdownMenuItem>
                     <Button variant="secondary" className="w-full text-sm" onClick={handleLogout}>
                       Logout

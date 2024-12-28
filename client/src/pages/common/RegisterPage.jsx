@@ -113,8 +113,8 @@ const RegisterPage = () => {
               </Alert>
             )}
             {success && (
-              <Alert className="mb-6">
-                <AlertDescription>{success}</AlertDescription>
+              <Alert className="bg-green-100 border-l-4 border-green-500 text-green-700 p-2 rounded-lg">
+                <AlertDescription className="text-sm font-semibold">{success}</AlertDescription>
               </Alert>
             )}
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -171,12 +171,9 @@ const RegisterPage = () => {
               <Button className="w-full" type="submit" disabled={loading}>
                 {loading ? "Creating Account..." : "Create Account"}
               </Button>
-              <Button className="w-full bg-white text-black" variant="outline" onClick={() => navigate("/login")} disabled={loading}>
-                {loading ? "Loading..." : "Sign In"}
-              </Button>
             </form>
 
-            <div className="card w-full overflow-hidden flex my-8 mx-11 flex items-center">
+            <div className="card w-full overflow-hidden flex my-8 mx-11 items-center">
               <Separator className="w-1/3" />
               <span className="px-4 text-muted-foreground">or</span>
               <Separator className="w-1/3" />
@@ -203,7 +200,7 @@ const RegisterPage = () => {
           </CardContent>
         </Card>
 
-        <p className="text-center text-muted-foreground mt-8">
+        <p className="text-center text-muted-foreground mt-3">
           Already have an account?{" "}
           <Button variant="link" className="p-0 h-auto font-semibold" onClick={() => navigate("/login")}>
             Log in
