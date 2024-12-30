@@ -9,10 +9,12 @@ import Navbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
 import AddEventForm from "../leader/AddEventForm";
 import { Plus } from "lucide-react";
+import RegisterDialog from "../../components/common/RegisterDialog";
 
 const EventsPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
 
   const handleSubmit = e => {
     e.preventDefault();
@@ -168,7 +170,13 @@ const EventsPage = () => {
 
                         <div className="flex justify-between items-center pt-4">
                           <div className="text-sm text-gray-600">Organized by: {event.organizer}</div>
-                          <Button>Register Now</Button>
+                          <Button className="ml-auto" onClick={() => setIsRegisterDialogOpen(true)}>
+                            Register Now
+                          </Button>
+                          <RegisterDialog
+                            isOpen={isRegisterDialogOpen}
+                            onClose={() => setIsRegisterDialogOpen(false)}
+                          />
                         </div>
                       </div>
                     </CardContent>
