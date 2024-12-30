@@ -1,4 +1,4 @@
-import React from "react";
+import { useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import Navbar from "@/components/common/Navbar";
 import Footer from "../../components/common/Footer";
@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
   const { user } = useAuth();
-  const [date, setDate] = React.useState(new Date());
+  const [date, setDate] = useState(new Date());
   const navigate = useNavigate();
 
   // Mock data - replace with real data from your backend
@@ -51,7 +51,7 @@ const HomePage = () => {
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Navbar />
 
-      <div className="flex-1 container mx-auto py-6 gap-6 flex">
+      <div className="flex-1 container mx-auto py-6 gap-6 flex mt-4">
         {/* Left Sidebar - User Profile */}
         <div className="hidden md:flex flex-col gap-6 w-64">
           <Card>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Carousel,
@@ -59,7 +59,7 @@ const CarouselSlides = () => {
     });
   }, [api]);
 
-  const plugin = React.useMemo(
+  const plugin = useMemo(
     () =>
       Autoplay({
         delay: 2000,

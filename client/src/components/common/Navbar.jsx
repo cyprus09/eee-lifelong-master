@@ -53,7 +53,7 @@ const Navbar = () => {
   };
 
   return (
-    <Card className="container sticky top-4 bg-card py-3 px-4 border-0 flex flex-col rounded-2xl mt-5 my-auto mx-auto">
+    <Card className="container sticky top-4 bg-card py-3 px-4 border-0 flex flex-col rounded-2xl my-auto mx-auto z-10">
       <div className="flex items-center justify-between gap-6">
         <Home onClick={() => navigate("/home")} className="text-primary cursor-pointer" size={24} />
         <ul className="hidden md:flex gap-10 text-card-foreground">

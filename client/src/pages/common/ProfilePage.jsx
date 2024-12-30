@@ -1,4 +1,4 @@
-import React from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Navbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
@@ -11,7 +11,7 @@ import { useAuth } from "../../contexts/AuthContext";
 const ProfilePage = () => {
   const { user } = useAuth();
 
-  const [userData, setUserData] = React.useState({
+  const [userData, setUserData] = useState({
     username: user?.user_metadata?.full_name,
     firstName: "Mayank",
     lastName: "Pallai",
@@ -101,7 +101,7 @@ const ProfilePage = () => {
           </CardContent>
         </Card>
       </div>
-      <Footer/>
+      <Footer />
     </div>
   );
 };
