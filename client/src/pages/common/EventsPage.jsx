@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "../../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,56 +13,47 @@ import { Plus } from "lucide-react";
 import RegisterDialog from "../../components/common/RegisterDialog";
 
 const EventsPage = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { user, userRole, isStudentLeader } = useAuth();
+  const [events, setEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const handleSubmit = e => {
-    e.preventDefault();
-    setIsAddEventOpen(false);
+  useEffect(() => {
+    // Fetch events from the server
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      const response = await fetch("/api/events");
+      const data = await response.json();
+      setEvents(data);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+    }
   };
 
-  const events = [
-    {
-      id: 1,
-      title: "Batch Reunion",
-      date: "2024-11-20",
-      time: "14:00",
-      location: "Main Campus Auditorium",
-      type: "Social",
-      description:
-        "Annual reunion for the batch of 2021-2025. Join us for an evening of networking and reminiscing with your batchmates.",
-      attendees: 45,
-      maxCapacity: 100,
-      organizer: "Alumni Association",
-    },
-    {
-      id: 2,
-      title: "Career Workshop",
-      date: "2024-11-25",
-      time: "10:00",
-      location: "Virtual Meeting",
-      type: "Career",
-      description:
-        "Interactive workshop on emerging career opportunities in electrical engineering. Industry experts will share insights and tips.",
-      attendees: 120,
-      maxCapacity: 200,
-      organizer: "Career Development Cell",
-    },
-    {
-      id: 3,
-      title: "Alumni Meet",
-      date: "2024-12-01",
-      time: "16:00",
-      location: "College Gardens",
-      type: "Social",
-      description:
-        "Annual alumni gathering with special presentations from distinguished alumni and networking opportunities.",
-      attendees: 75,
-      maxCapacity: 150,
-      organizer: "Alumni Relations Office",
-    },
-  ];
+  const handleRegister = async eventId => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message);
+      }
+      fetchEvents(); // Refresh the events list
+      setIsRegisterDialogOpen(false);
+    } catch (error) {
+      console.error("Error registering for event:", error);
+    }
+  };
 
   const getEventTypeColor = type => {
     const colors = {
@@ -118,11 +110,12 @@ const EventsPage = () => {
                   <TabsTrigger value="past">Past Events</TabsTrigger>
                   <TabsTrigger value="registered">Registered</TabsTrigger>
                 </div>
-                <Button className="ml-auto" variant="default" onClick={() => setIsAddEventOpen(true)}>
-                  <Plus className="h-4 w-3 mr-2" />
-                  Add Event
-                </Button>
-                <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} />
+                {isStudentLeader() && (
+                  <Button className="ml-auto" variant="default" onClick={() => setIsAddEventOpen(true)}>
+                    <Plus className="h-4 w-3 mr-2" />
+                    Add Event
+                  </Button>
+                )}
               </TabsList>
 
               <TabsContent value="upcoming" className="space-y-6">
@@ -170,6 +163,18 @@ const EventsPage = () => {
 
                         <div className="flex justify-between items-center pt-4">
                           <div className="text-sm text-gray-600">Organized by: {event.organizer}</div>
+                          {user && (
+                            <Button
+                              className="ml-auto"
+                              disabled={event.current_attendees >= event.max_attendees}
+                              onClick={() => {
+                                setSelectedEvent(event);
+                                setIsRegisterDialogOpen(true);
+                              }}
+                            >
+                              {event.current_attendees >= event.max_attendees ? "Event Full" : "Register Now"}
+                            </Button>
+                          )}
                           <Button className="ml-auto" onClick={() => setIsRegisterDialogOpen(true)}>
                             Register Now
                           </Button>
@@ -203,6 +208,16 @@ const EventsPage = () => {
           </div>
         </div>
       </div>
+      {isStudentLeader() && (
+        <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />
+      )}
+
+      <RegisterDialog
+        isOpen={isRegisterDialogOpen}
+        onClose={() => setIsRegisterDialogOpen(false)}
+        onConfirm={() => handleRegister(selectedEvent?.id)}
+        event={selectedEvent}
+      />
       <Footer />
     </div>
   );

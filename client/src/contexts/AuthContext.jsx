@@ -5,20 +5,47 @@ const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchUserRole = async userId => {
+    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId).single();
+    if (error) {
+      console.log("Error fetching user role: ", error);
+      return null;
+    }
+    return data?.role;
+  };
 
   useEffect(() => {
     // Check active sessions and sets the user
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if(currentUser) {
+        const role = await fetchUserRole(currentUser.id);
+        setUserRole(role);
+      }
+
       setLoading(false);
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        const role = await fetchUserRole(currentUser.id);
+        setUserRole(role);
+      } else {
+        setUserRole(null);
+      }
+
       setLoading(false);
     });
 
@@ -40,7 +67,11 @@ export const AuthProvider = ({ children }) => {
       return data;
     },
     user,
+    userRole,
     loading,
+    isStudentLeader: () => userRole === "student_leader",
+    isStudent: () => userRole === "student",
+    isAlumni: () => userRole === "alumni",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
