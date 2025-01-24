@@ -35,12 +35,14 @@ const LoginPage = () => {
     try {
       setError("");
       setLoading(true);
-      await signInWithGoogle();
+      const { error } = await signInWithGoogle();
+      if (error) throw error;
     } catch (error) {
       setError("Failed to sign in with Google: " + error.message);
       setLoading(false);
     }
   };
+
   return (
     <div className="flex flex-col lg:flex-row w-full min-h-screen">
       <div className="relative w-full lg:w-1/2 h-64 lg:h-screen">
@@ -65,7 +67,9 @@ const LoginPage = () => {
             <CardDescription className="text-muted-foreground">
               Welcome Back! Please enter your details.
             </CardDescription>
-            {error && <p className= "text-sm bg-red-100 border-l-4 border-red-500 text-red-700 p-2 rounded-lg">{error}</p>}
+            {error && (
+              <p className="text-sm bg-red-100 border-l-4 border-red-500 text-red-700 p-2 rounded-lg">{error}</p>
+            )}
           </CardHeader>
           <CardContent>
             <form className="space-y-6" onSubmit={handleSubmit}>
