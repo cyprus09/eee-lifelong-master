@@ -6,6 +6,7 @@ import LoginPage from "./pages/common/LoginPage";
 import RegisterPage from "./pages/common/RegisterPage";
 import ProfilePage from "./pages/common/ProfilePage";
 import EventsPage from "./pages/common/EventsPage";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/home" />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/events" element={<EventsPage />} />
+          <Route path="/admin" element={<AdminDashboard />}></Route>
         </Routes>
       </AuthProvider>
     </BrowserRouter>

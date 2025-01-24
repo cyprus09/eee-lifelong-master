@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import Navbar from "@/components/common/Navbar";
 import Footer from "../../components/common/Footer";
@@ -11,41 +11,54 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import CarouselSlides from "@/components/common/CarouselSlides";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabaseClient";
 
 const HomePage = () => {
-  const { user } = useAuth();
+  const { user, userRole, fetchUserRole } = useAuth();
   const [date, setDate] = useState(new Date());
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
   const navigate = useNavigate();
 
-  // Mock data - replace with real data from your backend
-  const userProfile = {
-    name: user?.user_metadata?.full_name || "User Name",
-    batch: "2021-2025",
-    course: "Electrical Engineering",
-    friends: 234,
-    avatar: user?.user_metadata?.avatar_url,
+  useEffect(() => {
+    if (user && !userRole) {
+      fetchUserRole(user.id);
+    }
+    fetchUpcomingEvents();
+  }, [user, userRole, fetchUserRole]);
+
+  const fetchUpcomingEvents = async () => {
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch("http://localhost:8080/api/events?type=upcoming", {
+        headers: {
+          Authorization: `Bearer ${session.data.session?.access_token}`,
+        },
+      });
+      const data = await response.json();
+      setUpcomingEvents(data);
+    } catch (error) {
+      console.error("Error fetching upcoming events:", error);
+    }
   };
 
-  const upcomingEvents = [
-    {
-      id: 1,
-      title: "Batch Reunion",
-      date: "2024-11-20",
-      type: "Social",
-    },
-    {
-      id: 2,
-      title: "Career Workshop",
-      date: "2024-11-25",
-      type: "Career",
-    },
-    {
-      id: 3,
-      title: "Alumni Meet",
-      date: "2024-12-01",
-      type: "Social",
-    },
-  ];
+  const userProfile = {
+    name: user?.user_metadata?.full_name || "User Name",
+    batch: user?.user_metadata?.batch || "2021-2025",
+    course: user?.user_metadata?.course || "Electrical Engineering",
+    friends: user?.user_metadata?.friends_count || 0,
+    avatar: user?.user_metadata?.avatar_url,
+    role: userRole,
+  };
+
+  const getEventTypeColor = type => {
+    const colors = {
+      Social: "bg-blue-100 text-blue-800",
+      Career: "bg-green-100 text-green-800",
+      Academic: "bg-purple-100 text-purple-800",
+      Cultural: "bg-yellow-100 text-yellow-800",
+    };
+    return colors[type] || "bg-gray-200 text-gray-800";
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
@@ -61,7 +74,7 @@ const HomePage = () => {
                   <AvatarImage src={userProfile.avatar} />
                   <AvatarFallback>
                     {userProfile.name
-                      .split(" ")
+                      ?.split(" ")
                       .map(n => n[0])
                       .join("")}
                   </AvatarFallback>
@@ -69,6 +82,11 @@ const HomePage = () => {
                 <div className="text-center">
                   <h3 className="font-semibold text-lg">{userProfile.name}</h3>
                   <p className="text-sm text-muted-foreground">{userProfile.batch}</p>
+                  {userProfile.role && (
+                    <Badge className="mt-2" variant="outline">
+                      {userProfile.role}
+                    </Badge>
+                  )}
                 </div>
                 <Button variant="outline" className="w-full" onClick={() => navigate("/profile")}>
                   Edit Profile
@@ -115,6 +133,21 @@ const HomePage = () => {
               <CarouselSlides />
             </CardContent>
           </Card>
+          {userRole === "student_leader" && (
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-semibold">Quick Actions</h3>
+                  <div className="flex gap-4">
+                    <Button onClick={() => navigate("/events/create")}>Create Event</Button>
+                    <Button variant="outline" onClick={() => navigate("/events/manage")}>
+                      Manage Events
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Sidebar - Calendar & Events */}
@@ -133,10 +166,15 @@ const HomePage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Bell className="w-5 h-5" />
-                <span>Upcoming Events</span>
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5" />
+                  <span>Upcoming Events</span>
+                </CardTitle>
+                <Button size="sm" variant="outline" onClick={() => navigate("/events")}>
+                  View All
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -144,9 +182,9 @@ const HomePage = () => {
                   <div key={event.id} className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-muted-foreground">{event.date}</p>
+                      <p className="text-sm text-muted-foreground">{new Date(event.date).toLocaleDateString()}</p>
                     </div>
-                    <Badge>{event.type}</Badge>
+                    <Badge className={getEventTypeColor(event.type)}>{event.type}</Badge>
                   </div>
                 ))}
               </div>

@@ -11,6 +11,7 @@ import Footer from "../../components/common/Footer";
 import AddEventForm from "../leader/AddEventForm";
 import { Plus } from "lucide-react";
 import RegisterDialog from "../../components/common/RegisterDialog";
+import { supabase } from "../../lib/supabaseClient";
 
 const EventsPage = () => {
   const { user, userRole, isStudentLeader } = useAuth();
@@ -27,7 +28,11 @@ const EventsPage = () => {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch("/api/events");
+      const response = await fetch("/api/events", {
+        headers: {
+          Authorization: `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session.access_token)}`,
+        },
+      });
       const data = await response.json();
       setEvents(data);
     } catch (error) {
@@ -41,6 +46,7 @@ const EventsPage = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session.access_token)}`,
         },
         body: JSON.stringify({ userId: user.id }),
       });
@@ -67,8 +73,8 @@ const EventsPage = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto">
         <Navbar />
+      <div className="max-w-7xl px-4 py-8 mx-auto">
         <div className="flex flex-col md:flex-row gap-8 mt-8">
           {/* Left Column - Calendar and Filters */}
           <div className="w-full md:w-80 space-y-6">

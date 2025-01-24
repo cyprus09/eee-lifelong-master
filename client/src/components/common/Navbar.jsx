@@ -66,6 +66,9 @@ const Navbar = () => {
           <li>
             <a href="/events">Events</a>
           </li>
+          <li>
+            <a href="/admin">Admin</a>
+          </li>
         </ul>
 
         <div className="flex items-center">
@@ -90,6 +93,9 @@ const Navbar = () => {
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <a href="#events">Events</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <a href="#events">Admin</a>
                 </DropdownMenuItem>
                 {user ? (
                   <DropdownMenuItem>
