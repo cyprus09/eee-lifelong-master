@@ -3,114 +3,77 @@ package handlers
 import (
 	"database/sql"
 	"github.com/gin-gonic/gin"
+	supa "github.com/supabase-community/supabase-go"
 	"lifelong-eee-project/server/models"
 	"log"
 	"net/http"
+	"os"
+	"time"
+	"encoding/json"
+	"fmt"
 )
 
 type EventHandler struct {
-	db *sql.DB
+	client *supa.Client
+	db     *sql.DB
 }
 
 func NewEventHandler(db *sql.DB) *EventHandler {
-	return &EventHandler{db: db}
+	supabaseUrl := os.Getenv("SUPABASE_URL")
+	supabaseKey := os.Getenv("SUPABASE_ANON_KEY")
+
+	client, err := supa.NewClient(supabaseUrl, supabaseKey, nil)
+	if err != nil {
+		log.Fatalf("Error initializing Supabase client: %v", err)
+	}
+	return &EventHandler{
+		client: client,
+		db:     db,
+	}
 }
 
 func (h *EventHandler) CreateEvent(c *gin.Context) {
 	var event models.Event
-	if err := c.ShouldBindJSON(&event); err != nil {
+	if err := c.BindJSON(&event); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	userRole := c.GetString("userRole")
-	if userRole != "student_leader" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only student leaders can create events"})
-		return
-	}
+	now := time.Now()
+	event.CreatedAt = now
+	event.UpdatedAt = now
+	event.CreatedBy = c.GetString("userId")
+	event.CurrentAttendees = 0
 
-	// Create event implementation
-	_, err := h.db.Exec(`
-			INSERT INTO events (title, description, event_date, venue, 
-												max_attendees, event_type, created_by)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			RETURNING id`,
-		event.Title, event.Description, event.EventDate, event.Venue,
-		event.MaxAttendees, event.EventType, c.GetString("userId"))
-
+	_, _, err := h.client.From("events").Upsert(
+		event,
+		"id,title,description,event_date,venue,max_attendees,current_attendees,event_type,created_by,created_at,updated_at",
+		"id",
+		"*").Execute()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "Event created successfully"})
+	c.JSON(http.StatusCreated, event)
 }
 
 func (h *EventHandler) GetEvents(c *gin.Context) {
-	eventType := c.DefaultQuery("type", "upcoming")
+	eventType := c.Query("type")
+	query := h.client.From("events").Select("*", "*", false)
 
-	query := `
-        SELECT id, title, description, event_date, venue, 
-               max_attendees, current_attendees, event_type, 
-               created_by, created_at, updated_at 
-        FROM events
-        WHERE event_type = $1
-        ORDER BY event_date
-    `
+	if eventType == "upcoming" {
+		query = query.Filter("event_date", "gt", time.Now().Format(time.RFC3339))
+	}
 
-	rows, err := h.db.Query(query, eventType)
+	_, contentStr, err := query.Execute()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
 
 	var events []models.Event
-	for rows.Next() {
-		var e models.Event
-		err := rows.Scan(&e.ID, &e.Title, &e.Description, &e.EventDate,
-			&e.Venue, &e.MaxAttendees, &e.CurrentAttendees,
-			&e.EventType, &e.CreatedBy, &e.CreatedAt, &e.UpdatedAt)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		events = append(events, e)
-	}
-
-	c.JSON(http.StatusOK, events)
-}
-
-func (h *EventHandler) GetRegisteredEvents(c *gin.Context) {
-	userID := c.Param("userId")
-
-	query := `
-        SELECT e.* FROM events e
-        INNER JOIN event_registrations er ON e.id = er.event_id
-        WHERE er.user_id = $1
-        ORDER BY e.event_date
-    `
-
-	rows, err := h.db.Query(query, userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	defer rows.Close()
-
-	var events []models.Event
-	for rows.Next() {
-		var e models.Event
-		err := rows.Scan(&e.ID, &e.Title, &e.Description, &e.EventDate,
-			&e.Venue, &e.MaxAttendees, &e.CurrentAttendees,
-			&e.EventType, &e.CreatedBy, &e.CreatedAt, &e.UpdatedAt)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		events = append(events, e)
-	}
-
+	json.Unmarshal([]byte(fmt.Sprintf("%v", contentStr)), &events)
 	c.JSON(http.StatusOK, events)
 }
 
@@ -118,83 +81,95 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 	eventID := c.Param("id")
 	userID := c.GetString("userId")
 
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User must be logged in to register"})
-		return
-	}
-
-	// Check event capacity
-	var maxAttendees, currentAttendees int
-	err := h.db.QueryRow(`
-				SELECT max_attendees, current_attendees
-				FROM events WHERE id = $1`, eventID).Scan(&maxAttendees, &currentAttendees)
-	
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	tx, err := h.db.Begin()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 		return
 	}
+	defer tx.Rollback()
 
-	var count int
+	var exists bool
 	err = tx.QueryRow(`
-				SELECT COUNT(*) FROM event_registrations
-				WHERE event_id = $1 AND user_id=$2`, eventID).Scan(&count)
+		SELECT EXISTS(
+			SELECT 1 FROM event_registrations 
+			WHERE event_id = $1 AND user_id = $2
+		)`, eventID, userID).Scan(&exists)
 
 	if err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration"})
 		return
 	}
 
-	if count > 0 {
-		tx.Rollback()
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Already registered!"})
+	if exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Already registered for this event"})
 		return
 	}
 
-	// Register user and update attendee count
-	_, err = tx.Exec(`
-        INSERT INTO event_registrations (event_id, user_id)
-        VALUES ($1, $2)
-    `, eventID, userID)
+	var currentAttendees, maxAttendees int
+	err = tx.QueryRow(`
+		SELECT current_attendees, max_attendees 
+		FROM events WHERE id = $1
+	`, eventID).Scan(&currentAttendees, &maxAttendees)
 
 	if err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get event details"})
 		return
 	}
 
-	_, err = tx.Exec(`
-        UPDATE events 
-        SET current_attendees = current_attendees + 1
-        WHERE id = $1
-    `, eventID)
+	if maxAttendees > 0 && currentAttendees >= maxAttendees {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Event is full"})
+		return
+	}
 
+	registration := models.Registration{
+		EventID: eventID,
+		UserID:  userID,
+	}
+
+	_, _, err = h.client.From("event_registrations").Insert(&registration, true, "event_id, user_id", "event_id", "*").Execute()
 	if err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register"})
 		return
 	}
 
-	if err := tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// Update attendee count using Supabase
+	updateQuery := map[string]interface{}{
+		"current_attendees": currentAttendees + 1,
+	}
+	_, _, err = h.client.From("events").Update(updateQuery, "current_attendees", "id").Eq("id", eventID).Execute()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update attendee count"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully registered"})
 }
 
-func UpdatePastEvents(db *sql.DB) {
-	_, err := db.Exec(`
-        UPDATE events 
-        SET event_type = 'past'
-        WHERE event_date < NOW()
-    `)
+func (h *EventHandler) GetRegisteredEvents(c *gin.Context) {
+	userID := c.Param("userId")
+	var events []models.Event
+
+	query := `
+		events(*),
+		event_registrations!inner (
+			user_id
+		)
+	`
+
+	_, _, err := h.client.From("events").Select(query, "*", false).Filter("event_registrations.user_id", "eq", userID).Execute()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, events)
+}
+
+func (h *EventHandler) UpdatePastEvents() {
+	updateQuery := map[string]interface{}{
+		"event_type": "past",
+	}
+	_, _, err := h.client.From("events").Update(updateQuery, "event_type", "event_date").Filter("event_date", "lt", time.Now().Format(time.RFC3339)).Execute()
 	if err != nil {
 		log.Printf("Error updating past events: %v", err)
 	}
