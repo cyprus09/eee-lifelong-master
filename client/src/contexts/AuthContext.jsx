@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-const AuthContext = createContext({});
+export const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -9,11 +9,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchUserRole = async userId => {
-    const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId).single();
-    if (error) {
-      console.log("Error fetching user role: ", error);
-      return null;
+    try {
+      // Try API first
+      const session = await supabase.auth.getSession();
+      const response = await fetch("http://localhost:8080/api/users/role", {
+        headers: {
+          Authorization: `Bearer ${session.data.session?.access_token}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return data.role;
+      }
+    } catch (error) {
+      console.error("API role fetch failed:", error);
     }
+
+    // Fallback to profiles table
+    const { data, error } = await supabase.from("profiles").select("role").eq("id", userId).single();
+
+    if (error) console.error("DB role fetch failed:", error);
     return data?.role;
   };
 
@@ -23,7 +38,7 @@ export const AuthProvider = ({ children }) => {
       const currentUser = session?.user ?? null;
       setUser(currentUser);
 
-      if(currentUser) {
+      if (currentUser) {
         const role = await fetchUserRole(currentUser.id);
         setUserRole(role);
       }
@@ -35,7 +50,6 @@ export const AuthProvider = ({ children }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
-
       const currentUser = session?.user ?? null;
       setUser(currentUser);
 
@@ -69,6 +83,7 @@ export const AuthProvider = ({ children }) => {
     user,
     userRole,
     loading,
+    fetchUserRole,
     isStudentLeader: () => userRole === "student_leader",
     isStudent: () => userRole === "student",
     isAlumni: () => userRole === "alumni",
@@ -77,6 +92,4 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+export const useAuth = () => useContext(AuthContext);
