@@ -23,6 +23,7 @@ type SupabaseUser struct {
 func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader("Authorization")
+		log.Printf("Received request with token: %v", token != "")
 		if token == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "No authorization token provided"})
 			c.Abort()

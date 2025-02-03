@@ -18,13 +18,17 @@ const LoginPage = () => {
 
   const handleSubmit = async e => {
     e.preventDefault();
+    console.log("Attempting sign in with email:", email);
     try {
       setError("");
       setLoading(true);
+      console.log("Calling signIn function...");
       const { error } = await signIn({ email, password });
+      console.log("SignIn response:", error ? "Error occured": "Success");
       if (error) throw error;
       navigate("/home");
     } catch (error) {
+      console.error("Sign in error details:", error);
       setError("Failed to sign in: " + error.message);
     } finally {
       setLoading(false);

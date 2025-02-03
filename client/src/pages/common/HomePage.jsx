@@ -17,27 +17,45 @@ const HomePage = () => {
   const { user, userRole, fetchUserRole } = useAuth();
   const [date, setDate] = useState(new Date());
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && !userRole) {
-      fetchUserRole(user.id);
-    }
-    fetchUpcomingEvents();
+    const initPage = async () => {
+      if (user && !userRole) {
+        await fetchUserRole(user.id);
+      }
+      await fetchUpcomingEvents();
+    };
+
+    initPage();
   }, [user, userRole, fetchUserRole]);
 
   const fetchUpcomingEvents = async () => {
+    setIsLoading(true);
     try {
       const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        console.log("No active session found");
+        return;
+      }
       const response = await fetch("http://localhost:8080/api/events?type=upcoming", {
         headers: {
-          Authorization: `Bearer ${session.data.session?.access_token}`,
+          Authorization: `Bearer ${session.data.session.access_token}`,
         },
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response_status}`);
+      }
+
       const data = await response.json();
-      setUpcomingEvents(data);
+      setUpcomingEvents(data || []);
     } catch (error) {
       console.error("Error fetching upcoming events:", error);
+      setUpcomingEvents([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -178,15 +196,21 @@ const HomePage = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {upcomingEvents.map(event => (
-                  <div key={event.id} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-muted-foreground">{new Date(event.date).toLocaleDateString()}</p>
+                {isLoading ? (
+                  <p>Loading events...</p>
+                ) : upcomingEvents?.length > 0 ? (
+                  upcomingEvents.map(event => (
+                    <div key={event.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{event.title}</p>
+                        <p className="text-sm text-muted-foreground">{new Date(event.date).toLocaleDateString()}</p>
+                      </div>
+                      <Badge className={getEventTypeColor(event.type)}>{event.type}</Badge>
                     </div>
-                    <Badge className={getEventTypeColor(event.type)}>{event.type}</Badge>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p>No upcoming events</p>
+                )}
               </div>
             </CardContent>
           </Card>
