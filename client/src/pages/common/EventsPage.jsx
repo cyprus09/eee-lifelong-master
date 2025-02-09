@@ -11,50 +11,113 @@ import Footer from "../../components/common/Footer";
 import AddEventForm from "../leader/AddEventForm";
 import { Plus } from "lucide-react";
 import RegisterDialog from "../../components/common/RegisterDialog";
+import RoomManagementDialog from "../leader/RoomManagementDialog";
 import { supabase } from "../../lib/supabaseClient";
+import { toast } from "@/hooks/use-toast";
 
 const EventsPage = () => {
   const { user, userRole, isStudentLeader } = useAuth();
   const [events, setEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
+  const [selectedROom, setSelectedRoom] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [activeTab, setActiveTab] = useState("upcoming");
 
-  useEffect(() => {
-    // Fetch events from the server
-    fetchEvents();
-  }, []);
-
-  const fetchEvents = async () => {
+  const fetchEvents = async (status = "upcoming") => {
     try {
-      const response = await fetch("/api/events", {
+      setLoading(true);
+      setError(null);
+
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error("No active session");
+      }
+
+      const response = await fetch(`http://localhost:8080/api/events?type=${status}`, {
         headers: {
-          Authorization: `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session.access_token)}`,
+          Authorization: `Bearer ${session.data.session.access_token}`,
         },
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch events");
+      }
+
       const data = await response.json();
-      setEvents(data);
+      console.log("Fetched events:", data);
+      setEvents(data || []);
     } catch (error) {
       console.error("Error fetching events:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents(activeTab);
+  }, [activeTab]);
+
+  const handleRoomSelection = room => {
+    setSelectedRoom(room);
+    setIsRoomDialogOpen(false);
+    // todo
+    // If add event form is open, it will receive the selected room
+    // If not, we'll store it for when the form opens
+  };
+
+  const handleSubmit = async eventData => {
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch("http://localhost:8080/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          ...eventData,
+          status: "upcoming",
+          venue: selectedRoom?.name || eventData.venue,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create event");
+      }
+
+      await fetchEvents(activeTab);
+      setIsAddEventOpen(false);
+    } catch (error) {
+      console.error("Error creating event:", error);
+      toast({
+        title: "Event creation failed",
+        description: "There was a problem creating the event. Please try again.",
+      });
     }
   };
 
   const handleRegister = async eventId => {
     try {
-      const response = await fetch(`/api/events/${eventId}/register`, {
+      const response = await fetch(`http://localhost:8080/api/events/${eventId}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session.access_token)}`,
         },
-        body: JSON.stringify({ userId: user.id }),
       });
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message);
       }
-      fetchEvents(); // Refresh the events list
+      fetchEvents(activeTab);
       setIsRegisterDialogOpen(false);
     } catch (error) {
       console.error("Error registering for event:", error);
@@ -71,9 +134,85 @@ const EventsPage = () => {
     return colors[type] || "bg-gray-200 text-gray-800";
   };
 
+  const getStatusColor = status => {
+    const colors = {
+      upcoming: "bg-green-100 text-green-800",
+      past: "bg-gray-100 text-gray-800",
+      cancelled: "bg-red-100 text-red-800",
+    };
+    return colors[status] || "bg-gray-100 text-gray-800";
+  };
+
+  const renderEventCard = event => {
+    const eventDate = event.event_date ? new Date(event.event_date) : new Date();
+
+    return (
+      <Card key={event.id} className="hover:shadow-lg transition-shadow">
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-xl font-bold">{event.title}</CardTitle>
+              <div className="flex items-center gap-2 mt-2 text-gray-600">
+                <CalendarIcon className="h-4 w-4" />
+                <span>
+                  {eventDate.toLocaleDateString("en-US", {
+                    weekday: "long",
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
+              <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-gray-600">{event.description}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-2 text-gray-600">
+                <Clock className="h-4 w-4" />
+                <span>{new Date(event.event_date).toLocaleTimeString()}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <MapPin className="h-4 w-4" />
+                <span>{event.venue}</span>
+              </div>
+              <div className="flex items-center gap-2 text-gray-600">
+                <Users className="h-4 w-4" />
+                <span>
+                  {event.current_attendees}/{event.max_attendees} attending
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4">
+              {event.status === "upcoming" && (
+                <Button
+                  className="ml-auto"
+                  disabled={event.current_attendees >= event.max_attendees}
+                  onClick={() => {
+                    setSelectedEvent(event);
+                    setIsRegisterDialogOpen(true);
+                  }}
+                >
+                  {event.current_attendees >= event.max_attendees ? "Event Full" : "Register Now"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-        <Navbar />
+      <Navbar />
       <div className="max-w-7xl px-4 py-8 mx-auto">
         <div className="flex flex-col md:flex-row gap-8 mt-8">
           {/* Left Column - Calendar and Filters */}
@@ -94,6 +233,15 @@ const EventsPage = () => {
 
             <Card>
               <CardHeader>
+                <CardTitle>Room Avalability</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => setIsRoomDialogOpen(true)}>Select Room</Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle>Event Types</CardTitle>
               </CardHeader>
               <CardContent>
@@ -107,14 +255,13 @@ const EventsPage = () => {
             </Card>
           </div>
 
-          {/* Right Column - Events List */}
           <div className="flex-1 mb-6">
-            <Tabs defaultValue="upcoming" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="flex items-center justify-between">
                 <div className="flex space-x-4">
                   <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
                   <TabsTrigger value="past">Past Events</TabsTrigger>
-                  <TabsTrigger value="registered">Registered</TabsTrigger>
+                  <TabsTrigger value="cancelled">Cancelled Events</TabsTrigger>
                 </div>
                 {isStudentLeader() && (
                   <Button className="ml-auto" variant="default" onClick={() => setIsAddEventOpen(true)}>
@@ -125,95 +272,45 @@ const EventsPage = () => {
               </TabsList>
 
               <TabsContent value="upcoming" className="space-y-6">
-                {events.map(event => (
-                  <Card key={event.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-xl font-bold">{event.title}</CardTitle>
-                          <div className="flex items-center gap-2 mt-2 text-gray-600">
-                            <CalendarIcon className="h-4 w-4" />
-                            <span>
-                              {new Date(event.date).toLocaleDateString("en-US", {
-                                weekday: "long",
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })}
-                            </span>
-                          </div>
-                        </div>
-                        <Badge className={getEventTypeColor(event.type)}>{event.type}</Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <p className="text-gray-600">{event.description}</p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Clock className="h-4 w-4" />
-                            <span>{event.time}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <MapPin className="h-4 w-4" />
-                            <span>{event.location}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-gray-600">
-                            <Users className="h-4 w-4" />
-                            <span>
-                              {event.attendees}/{event.maxCapacity} attending
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-4">
-                          <div className="text-sm text-gray-600">Organized by: {event.organizer}</div>
-                          {user && (
-                            <Button
-                              className="ml-auto"
-                              disabled={event.current_attendees >= event.max_attendees}
-                              onClick={() => {
-                                setSelectedEvent(event);
-                                setIsRegisterDialogOpen(true);
-                              }}
-                            >
-                              {event.current_attendees >= event.max_attendees ? "Event Full" : "Register Now"}
-                            </Button>
-                          )}
-                          <Button className="ml-auto" onClick={() => setIsRegisterDialogOpen(true)}>
-                            Register Now
-                          </Button>
-                          <RegisterDialog
-                            isOpen={isRegisterDialogOpen}
-                            onClose={() => setIsRegisterDialogOpen(false)}
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {loading ? (
+                  <div className="text-center py-4">Loading...</div>
+                ) : error ? (
+                  <div className="text-center text-red-500 py-4">{error}</div>
+                ) : events.length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">No upcoming events</div>
+                ) : (
+                  events.map(event => renderEventCard(event))
+                )}
               </TabsContent>
 
-              <TabsContent value="past">
-                <Card>
-                  <CardContent className="py-8">
-                    <div className="text-center text-gray-500">Past events will be shown here</div>
-                  </CardContent>
-                </Card>
+              <TabsContent value="past" className="space-y-6">
+                {loading ? (
+                  <div className="text-center py-4">Loading...</div>
+                ) : error ? (
+                  <div className="text-center text-red-500 py-4">{error}</div>
+                ) : events.length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">No past events</div>
+                ) : (
+                  events.map(event => renderEventCard(event))
+                )}
               </TabsContent>
 
-              <TabsContent value="registered">
-                <Card>
-                  <CardContent className="py-8">
-                    <div className="text-center text-gray-500">Your registered events will appear here</div>
-                  </CardContent>
-                </Card>
+              <TabsContent value="cancelled" className="space-y-6">
+                {loading ? (
+                  <div className="text-center py-4">Loading...</div>
+                ) : error ? (
+                  <div className="text-center text-red-500 py-4">{error}</div>
+                ) : events.length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">No cancelled events</div>
+                ) : (
+                  events.map(event => renderEventCard(event))
+                )}
               </TabsContent>
             </Tabs>
           </div>
         </div>
       </div>
+
       {isStudentLeader() && (
         <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />
       )}
@@ -223,6 +320,12 @@ const EventsPage = () => {
         onClose={() => setIsRegisterDialogOpen(false)}
         onConfirm={() => handleRegister(selectedEvent?.id)}
         event={selectedEvent}
+      />
+      <RoomManagementDialog
+        isOpen={isRoomDialogOpen}
+        onClose={() => setIsRoomDialogOpen(false)}
+        onRoomSelect={handleRoomSelection}
+        selectedDate={selectedDate}
       />
       <Footer />
     </div>

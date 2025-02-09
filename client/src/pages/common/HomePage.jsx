@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 
 const HomePage = () => {
-  const { user, userRole, fetchUserRole } = useAuth();
+  const { user, userRole, hasRole } = useAuth();
   const [date, setDate] = useState(new Date());
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,14 +22,19 @@ const HomePage = () => {
 
   useEffect(() => {
     const initPage = async () => {
-      if (user && !userRole) {
-        await fetchUserRole(user.id);
-      }
+      console.log("HomePage initialized with:", {
+        userId: user?.id,
+        userRole,
+        hasStudentLeaderAccess: hasRole("student_leader"),
+      });
+
       await fetchUpcomingEvents();
     };
 
-    initPage();
-  }, [user, userRole, fetchUserRole]);
+    if (user) {
+      initPage();
+    }
+  }, [user, userRole]);
 
   const fetchUpcomingEvents = async () => {
     setIsLoading(true);
@@ -45,10 +50,11 @@ const HomePage = () => {
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response_status}`);
-      }
+      console.log(session.data.session.access_token);
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
       setUpcomingEvents(data || []);
     } catch (error) {
@@ -81,7 +87,6 @@ const HomePage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       <Navbar />
-
       <div className="flex-1 container mx-auto py-6 gap-6 flex mt-4">
         {/* Left Sidebar - User Profile */}
         <div className="hidden md:flex flex-col gap-6 w-64">
