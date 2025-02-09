@@ -4,11 +4,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 type SupabaseUser struct {
@@ -33,27 +34,35 @@ func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 		// Verify token and get user ID
 		user, err := verifyToken(token)
 		if err != nil {
+			log.Printf("Token verification error: %v", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
 			return
 		}
 
-		// Get user role
+		// Get user role with better error handling
 		var role string
 		err = db.QueryRow("SELECT role FROM profiles WHERE id = $1", user.ID).Scan(&role)
 		if err != nil {
-			log.Printf("Error fetching role: %v", err)
-			role = "user"
-			// if err == sql.ErrNoRows {
-			// 	role = "user" // Default role
-			// } else {
-			// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Error fetching user role"})
-			// 	c.Abort()
-			// 	return
-			// }
+			if err == sql.ErrNoRows {
+				log.Printf("No profile found for user %s, setting default role", user.ID)
+				role = "student" // Default role
+			} else {
+				log.Printf("Database error fetching role: %v", err)
+				// Create profile if it doesn't exist
+				_, err = db.Exec(`
+                    INSERT INTO profiles (id, role, username, updated_at)
+                    VALUES ($1, 'student', $2, NOW())
+                    ON CONFLICT (id) DO NOTHING
+                `, user.ID, user.Email)
+				if err != nil {
+					log.Printf("Error creating profile: %v", err)
+				}
+				role = "student" // Set default role after attempt to create profile
+			}
 		}
 
-		log.Printf("User %s has role: %s", user.ID, role)
+		log.Printf("User %s assigned role: %s", user.ID, role)
 
 		c.Set("userId", user.ID)
 		c.Set("userRole", role)
@@ -66,6 +75,14 @@ func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole := c.GetString("userRole")
+		log.Printf("Checking role requirement: user has '%s', required: %v", userRole, roles)
+
+		// Handle case where role is empty
+		if userRole == "" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "No role assigned"})
+			c.Abort()
+			return
+		}
 
 		for _, role := range roles {
 			if userRole == role {
@@ -74,7 +91,11 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 			}
 		}
 
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":          "Insufficient permissions",
+			"required_roles": roles,
+			"current_role":   userRole,
+		})
 		c.Abort()
 	}
 }
@@ -85,9 +106,13 @@ func verifyToken(token string) (*SupabaseUser, error) {
 	supabaseUrl := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_ANON_KEY")
 
+	if supabaseUrl == "" || supabaseKey == "" {
+		return nil, fmt.Errorf("missing Supabase configuration")
+	}
+
 	req, err := http.NewRequest("GET", supabaseUrl+"/auth/v1/user", nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating request: %v", err)
 	}
 
 	req.Header.Set("apikey", supabaseKey)
@@ -96,17 +121,21 @@ func verifyToken(token string) (*SupabaseUser, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error making request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("invalid token")
+		return nil, fmt.Errorf("invalid token (status %d)", resp.StatusCode)
 	}
 
 	var user SupabaseUser
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error decoding response: %v", err)
+	}
+
+	if user.ID == "" {
+		return nil, fmt.Errorf("invalid user data received")
 	}
 
 	return &user, nil
