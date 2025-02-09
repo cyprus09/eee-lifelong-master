@@ -11,6 +11,7 @@ import { nanoid } from "nanoid";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 const landings = [
   {
@@ -33,22 +34,30 @@ const landings = [
 const Navbar = () => {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
     try {
-      await signOut();
-      navigate("/login");
+      setIsLoggingOut(true);
+      const { error } = await signOut();
+
+      if (error) throw error;
+
       toast({
         title: "Logged out successfully",
         description: "You have been logged out of your account.",
       });
+
+      window.location.href = "/login";
     } catch (error) {
+      console.error("Error logging out:", error);
       toast({
         variant: "destructive",
         title: "Error logging out",
         description: "There was a problem logging out. Please try again.",
       });
-      console.error("Error logging out:", error);
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -58,22 +67,22 @@ const Navbar = () => {
         <Home onClick={() => navigate("/home")} className="text-primary cursor-pointer" size={24} />
         <ul className="hidden md:flex gap-10 text-card-foreground">
           <li className="text-primary font-medium">
-            <a href="/">Home</a>
+            <Link to="/">Home</Link>
           </li>
           <li>
-            <a href="#faqs">FAQs</a>
+            <Link to="#faqs">FAQs</Link>
           </li>
           <li>
-            <a href="/events">Events</a>
+            <Link to="/events">Events</Link>
           </li>
           <li>
-            <a href="/admin">Admin</a>
+            <Link to="/admin">Admin</Link>
           </li>
         </ul>
 
         <div className="flex items-center">
-          <Button variant="secondary" className="hidden md:block px-2" onClick={handleLogout}>
-            Logout
+          <Button variant="secondary" className="hidden md:block px-2" onClick={handleLogout} disabled={isLoggingOut}>
+            {isLoggingOut ? "Logging out..." : "Logout"}
           </Button>
 
           {/* Mobile menu */}
@@ -86,35 +95,49 @@ const Navbar = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>
-                  <a href="/">Home</a>
+                  <Link to="/" className="w-full">
+                    Home
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <a href="#faqs">FAQs</a>
+                  <Link to="#faqs" className="w-full">
+                    FAQs
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <a href="#events">Events</a>
+                  <Link to="/events" className="w-full">
+                    Events
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <a href="#events">Admin</a>
+                  <Link to="/admin" className="w-full">
+                    Admin
+                  </Link>
                 </DropdownMenuItem>
                 {user ? (
                   <DropdownMenuItem>
-                    <Button variant="secondary" className="w-full text-sm" onClick={handleLogout}>
-                      Logout
+                    <Button
+                      variant="secondary"
+                      className="w-full text-sm"
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                    >
+                      {isLoggingOut ? "Logging out..." : "Logout"}
                     </Button>
                   </DropdownMenuItem>
                 ) : (
-                  // Show login/register in mobile menu when no user is logged in
                   <>
                     <DropdownMenuItem>
-                      <Button variant="secondary" className="w-full text-sm">
-                        <Link to="/login">Login</Link>
-                      </Button>
+                      <Link to="/login" className="w-full">
+                        <Button variant="secondary" className="w-full text-sm">
+                          Login
+                        </Button>
+                      </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <Button className="w-full text-sm">
-                        <Link to="/register">Register</Link>
-                      </Button>
+                      <Link to="/register" className="w-full">
+                        <Button className="w-full text-sm">Register</Button>
+                      </Link>
                     </DropdownMenuItem>
                   </>
                 )}

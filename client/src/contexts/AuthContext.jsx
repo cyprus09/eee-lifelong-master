@@ -1,95 +1,308 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export const AuthContext = createContext({});
+const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUserRole = async userId => {
-    try {
-      // Try API first
-      const session = await supabase.auth.getSession();
-      const response = await fetch("http://localhost:8080/api/users/role", {
-        headers: {
-          Authorization: `Bearer ${session.data.session?.access_token}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        return data.role;
-      }
-    } catch (error) {
-      console.error("API role fetch failed:", error);
-    }
-
-    // Fallback to profiles table
-    const { data, error } = await supabase.from("profiles").select("role").eq("id", userId).single();
-
-    if (error) console.error("DB role fetch failed:", error);
-    return data?.role;
+  const isStudentLeader = () => {
+    return userRole === "student_leader";
   };
 
-  useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
+  const signUp = async ({ email, password, options }) => {
+    try {
+      // Create auth user with email confirmation
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: options.data.full_name,
+          },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      });
 
-      if (currentUser) {
-        const role = await fetchUserRole(currentUser.id);
-        setUserRole(role);
+      if (error) throw error;
+
+      return {
+        data,
+        error: null,
+        message: "Please check your email for verification link",
+      };
+    } catch (error) {
+      console.error("SignUp error:", error);
+      return {
+        data: null,
+        error: error.message,
+      };
+    }
+  };
+
+  const signIn = async ({ email, password }) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data?.user) {
+        setUser(data.user);
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        while (attempts < maxAttempts) {
+          const role = await fetchUserRole(data.user.id);
+          if (role) {
+            console.log("Successfully set user role:", role);
+            break;
+          }
+          attempts++;
+          if (attempts < maxAttempts) {
+            console.log(`Attempt ${attempts} failed, waiting before retry...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
       }
 
-      setLoading(false);
-    });
+      return { data, error: null };
+    } catch (error) {
+      console.error("Sign in error:", error);
+      return { data: null, error };
+    }
+  };
 
-    // Listen for changes on auth state (sign in, sign out, etc.)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-
-      if (currentUser) {
-        const role = await fetchUserRole(currentUser.id);
-        setUserRole(role);
-      } else {
-        setUserRole(null);
-      }
-
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const value = {
-    signUp: data => supabase.auth.signUp(data),
-    signIn: data => supabase.auth.signInWithPassword(data),
-    signOut: () => supabase.auth.signOut(),
-    signInWithGoogle: async () => {
+  const signInWithGoogle = async () => {
+    try {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/home`,
         },
       });
+
       if (error) throw error;
-      return data;
-    },
-    user,
-    userRole,
-    loading,
-    fetchUserRole,
-    isStudentLeader: () => userRole === "student_leader",
-    isStudent: () => userRole === "student",
-    isAlumni: () => userRole === "alumni",
+      return { data, error: null };
+    } catch (error) {
+      console.error("Google sign in error:", error);
+      return { data: null, error };
+    }
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const fetchUserRole = async userId => {
+    try {
+      console.log("Fetching role for user:", userId);
+
+      // First try to select the profile
+      const { data: existingProfile, error: selectError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+
+      // If profile exists, return the role
+      if (existingProfile?.role) {
+        console.log("Found existing profile with role:", existingProfile.role);
+        setUserRole(existingProfile.role);
+        return existingProfile.role;
+      }
+
+      // Only try to create a profile if one doesn't exist
+      if (selectError?.code === "PGRST116") {
+        // No profile found
+        console.log("No profile found, creating new profile");
+        const { data: newProfile, error: insertError } = await supabase
+          .from("profiles")
+          .insert([
+            {
+              id: userId,
+              role: "student",
+              username: user?.email || `user-${userId}`,
+              updated_at: new Date().toISOString(),
+            },
+          ])
+          .select("role")
+          .single();
+
+        if (insertError) {
+          console.error("Error creating profile:", insertError);
+          throw insertError;
+        }
+
+        console.log("New profile created with role:", newProfile.role);
+        setUserRole(newProfile.role);
+        return newProfile.role;
+      }
+
+      // If there was a different error querying the profile
+      if (selectError) {
+        throw selectError;
+      }
+    } catch (error) {
+      console.error("Error in fetchUserRole:", error);
+      return null;
+    }
+  };
+
+  const updateUserRole = async (userId, newRole) => {
+    try {
+      const { data, error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId).single();
+
+      if (error) throw error;
+      setUserRole(newRole);
+    } catch (error) {
+      console.error("Error updating role:", error);
+      throw error;
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      setUser(null);
+      if (!userRole) {
+        setUserRole(null);
+      }
+
+      window.localStorage.removeItem("supabase.auth.token");
+
+      return { error: null };
+    } catch (error) {
+      console.error("Error signing out:", error);
+      return { error };
+    }
+  };
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        console.log("Initializing auth...");
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+        console.log("Auth session:", session);
+
+        if (error) throw error;
+
+        if (session?.user) {
+          setUser(session.user);
+          // Attempt to fetch role multiple times if needed
+          let attempts = 0;
+          const maxAttempts = 3;
+
+          while (attempts < maxAttempts) {
+            console.log(`Attempt ${attempts + 1} to fetch role`);
+            const role = await fetchUserRole(session.user.id);
+            if (role) {
+              console.log("Role fetched successfully:", role);
+              break;
+            }
+            attempts++;
+            if (attempts < maxAttempts) {
+              console.log("Waiting before next attempt...");
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between attempts
+            }
+          }
+        } else {
+          // Make sure to clear states if no session
+          setUser(null);
+          setUserRole(null);
+        }
+      } catch (error) {
+        console.error("Error in initAuth:", error);
+        // Clear states on error
+        setUser(null);
+        setUserRole(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state changed:", event, session?.user);
+
+      if (event === "SIGNED_OUT") {
+        // Clear all states
+        setUser(null);
+        setUserRole(null);
+        setLoading(false);
+        return;
+      }
+
+      if (session?.user) {
+        setUser(session.user);
+        // Add retry mechanism here as well
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        while (attempts < maxAttempts) {
+          const role = await fetchUserRole(session.user.id);
+          if (role) break;
+          attempts++;
+          if (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  // Verify if user has required role
+  const hasRole = requiredRole => {
+    if (!userRole) return false;
+    if (requiredRole === "admin") return userRole === "admin";
+    if (requiredRole === "student_leader") {
+      return userRole === "student_leader" || userRole === "admin";
+    }
+    return true;
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        userRole,
+        loading,
+        fetchUserRole,
+        isStudentLeader,
+        updateUserRole,
+        hasRole,
+        signUp,
+        signIn,
+        signInWithGoogle,
+        signOut,
+      }}
+    >
+      <div className="hidden">
+        Debug: User ID: {user?.id}, Role: {userRole || "No role"}
+      </div>
+
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

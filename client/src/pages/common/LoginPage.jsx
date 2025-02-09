@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -22,14 +23,31 @@ const LoginPage = () => {
     try {
       setError("");
       setLoading(true);
+
       console.log("Calling signIn function...");
-      const { error } = await signIn({ email, password });
-      console.log("SignIn response:", error ? "Error occured": "Success");
-      if (error) throw error;
-      navigate("/home");
+      const { data, error } = await signIn({ email, password });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data?.user) {
+        toast({
+          title: "Welcome back!",
+          description: "Successfully signed in.",
+        });
+        navigate("/home");
+      } else {
+        throw new Error("No user data received");
+      }
     } catch (error) {
       console.error("Sign in error details:", error);
-      setError("Failed to sign in: " + error.message);
+      setError("Failed to sign in: " + (error.message || "Please check your credentials"));
+      toast({
+        variant: "destructive",
+        title: "Sign in failed",
+        description: error.message || "Please check your credentials and try again",
+      });
     } finally {
       setLoading(false);
     }

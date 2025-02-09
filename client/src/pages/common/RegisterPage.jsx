@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "@/hooks/use-toast";
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -50,7 +51,7 @@ const RegisterPage = () => {
       setError("");
       setLoading(true);
 
-      const { data, error } = await signUp({
+      const { data, error, message } = await signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -60,12 +61,31 @@ const RegisterPage = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        setError(error);
+        toast({
+          variant: "destructive",
+          title: "Registration failed",
+          description: error,
+        });
+        return;
+      }
 
       setSuccess("Registration successful! Please check your email for verification.");
+      toast({
+        title: "Check your email",
+        description: "Please check your email for a verification link to complete your registration.",
+      });
+
       setTimeout(() => navigate("/login"), 3000);
     } catch (error) {
+      console.error("Registration error:", error);
       setError(error.message);
+      toast({
+        variant: "destructive",
+        title: "Registration failed",
+        description: error.message,
+      });
     } finally {
       setLoading(false);
     }
