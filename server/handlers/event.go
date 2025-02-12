@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"strconv"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -88,16 +87,21 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 	// Log the event creation attempt
 	log.Printf("Attempting to create event: %+v", event)
 
-	_, _, err := h.client.From("events").
-		Insert(&event, false,
-			"id,title,description,event_date,venue,max_attendees,current_attendees,event_type,status,created_by,created_at,updated_at",
-			"",
-			"*").
-		Execute()
+	result, contentStr, err := h.client.From("events").Insert(&event, false, "*", "", "*").Execute()
+
+	log.Printf("Insert result: %+v", result)
+	log.Printf("Insert content: %s", contentStr)
 
 	if err != nil {
 		log.Printf("Error creating event: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create event: %v", err)})
+		return
+	}
+
+	var createdEvent models.Event
+	if err := json.Unmarshal([]byte(fmt.Sprintf("%v", contentStr)), &createdEvent); err != nil {
+		log.Printf("Error unmarshaling created event: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process created event"})
 		return
 	}
 
@@ -129,58 +133,49 @@ func (h *EventHandler) GetEvents(c *gin.Context) {
 	log.Printf("Event type filter: %s", eventType)
 
 	// Basic select with all needed fields
-	query := h.client.From("events").Select("id,title,description,event_date,venue,max_attendees,current_attendees,event_type,status,created_by,created_at,updated_at", "", false)
+	query := h.client.From("events").Select("*", "", false)
+	log.Printf("Raw query: %+v", query)
 
 	// Debug current time
 	now := time.Now().Format(time.RFC3339)
-	log.Printf("Current time for comparison: %s", now)
+	log.Printf("Query params: type=%s now=%s", eventType, now)
 
 	// Add filters based on type
 	switch eventType {
 	case "upcoming":
-			query = query.Filter("event_date", "gt", now)
-			query = query.Order("event_date", &postgrest.OrderOpts{Ascending: true})
+		query = query.Filter("event_date", "gt", now).Filter("status", "eq", "upcoming").Order("event_date", &postgrest.OrderOpts{Ascending: true})
 	case "past":
-			query = query.Filter("event_date", "lt", now)
-			query = query.Order("event_date", &postgrest.OrderOpts{Ascending: false})
+		query = query.Filter("event_date", "lt", now).Filter("status", "eq", "upcoming").Order("event_date", &postgrest.OrderOpts{Ascending: false})
 	case "cancelled":
-			query = query.Filter("status", "eq", "cancelled")
+		query = query.Filter("status", "eq", "cancelled")
 	}
 
 	// Execute query and get results
-	_, contentStr, err := query.Execute()
+	result, _, err := query.Execute()
 	if err != nil {
-			log.Printf("Error executing query: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+		log.Printf("Error executing query: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
-	log.Printf("Raw Supabase response: %v", contentStr)
-
-	// If we get a numeric response, it's likely an empty result
-	if _, err := strconv.Atoi(fmt.Sprintf("%v", contentStr)); err == nil {
-			log.Printf("No events found (numeric response)")
-			c.JSON(http.StatusOK, []models.Event{})
-			return
-	}
+	// log.Printf("Query result: %+v", result)
 
 	// Try to unmarshal the response
 	var events []models.Event
-	if err := json.Unmarshal([]byte(fmt.Sprintf("%v", contentStr)), &events); err != nil {
-			log.Printf("Error unmarshaling events: %v", err)
-			log.Printf("Content string being unmarshaled: %s", contentStr)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process events data"})
-			return
+	if err := json.Unmarshal(result, &events); err != nil {
+		log.Printf("Error unmarshaling events: %v", err)
+		log.Printf("JSON being unmarshaled: %s", string(result))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process events data"})
+		return
 	}
 
 	// Log success and return results
 	log.Printf("Successfully retrieved %d events", len(events))
 	for _, event := range events {
-			log.Printf("Event: %s, Date: %s, Type: %s, Status: %s", 
-					event.Title, 
-					event.EventDate.Format(time.RFC3339),
-					event.EventType,
-					event.Status)
+		log.Printf("Event: %s, Date: %s, Type: %s",
+			event.Title,
+			event.EventDate.Format(time.RFC3339),
+			event.EventType)
 	}
 
 	c.JSON(http.StatusOK, events)

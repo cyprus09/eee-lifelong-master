@@ -17,9 +17,6 @@ func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Error loading .env file: %v", err)
 	}
-
-	log.Printf("SUPABASE_URL: %s", os.Getenv("SUPABASE_URL"))
-	log.Printf("DATABASE_URL: %s", os.Getenv("DATABASE_URL"))
 }
 
 func main() {
@@ -123,5 +120,7 @@ func main() {
 	}
 
 	log.Printf("Server starting on :8080")
-	router.Run(":8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("Server failed to start: %v", err)
+	}
 }

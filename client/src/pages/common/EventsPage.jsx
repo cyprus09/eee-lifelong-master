@@ -38,11 +38,17 @@ const EventsPage = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/events?type=${status}`, {
+      const url = `http://localhost:8080/api/events?type=${status}`;
+      console.log("Fetching events from:", url);
+
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
         },
       });
+
+      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -50,7 +56,8 @@ const EventsPage = () => {
       }
 
       const data = await response.json();
-      console.log("Fetched events:", data);
+      console.log("Raw API Response:", response.text());
+      console.log("Parsed Data:", data);
       setEvents(data || []);
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -61,6 +68,7 @@ const EventsPage = () => {
   };
 
   useEffect(() => {
+    console.log("Fetching events for tab:", activeTab);
     fetchEvents(activeTab);
   }, [activeTab]);
 
