@@ -10,10 +10,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-const RegisterDialog = ({ isOpen, onClose }) => {
-  const handleConfirm = () => {
+const RegisterDialog = ({ isOpen, onClose, onConfirm, event }) => {
+  const handleConfirm = async () => {
     console.log("User registered successfully");
-    onClose(); 
+    await onConfirm();
   };
 
   return (
@@ -22,7 +22,7 @@ const RegisterDialog = ({ isOpen, onClose }) => {
         <AlertDialogHeader>
           <AlertDialogTitle>Confirm Registration?</AlertDialogTitle>
           <AlertDialogDescription>
-            By confirming, you will be registered for the event. You can cancel anytime before the event starts.
+            By confirming, you will be registered for "{event?.title}". You can cancel anytime before the event starts.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

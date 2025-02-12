@@ -18,15 +18,17 @@ import { toast } from "@/hooks/use-toast";
 const EventsPage = () => {
   const { user, userRole, isStudentLeader } = useAuth();
   const [events, setEvents] = useState([]);
+  const [registeredEvents, setRegisteredEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
-  const [selectedROom, setSelectedRoom] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState("upcoming");
+  const [selectedEventType, setSelectedEventType] = useState("all");
 
   const fetchEvents = async (status = "upcoming") => {
     try {
@@ -67,9 +69,45 @@ const EventsPage = () => {
     }
   };
 
+  const fetchRegisteredEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error("No active session");
+      }
+
+      const response = await fetch(`http://localhost:8080/api/events/registered/${session.data.session.user.id}`, {
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch registered events");
+      }
+
+      const data = await response.json();
+      console.log("Fetched registered events:", data);
+      setRegisteredEvents(data);
+    } catch (error) {
+      console.error("Error fetching registered events:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    console.log("Fetching events for tab:", activeTab);
-    fetchEvents(activeTab);
+    if (activeTab === "registered") {
+      fetchRegisteredEvents();
+    } else {
+      console.log("Fetching events for tab:", activeTab);
+      fetchEvents(activeTab);
+    }
   }, [activeTab]);
 
   const handleRoomSelection = room => {
@@ -114,45 +152,70 @@ const EventsPage = () => {
 
   const handleRegister = async eventId => {
     try {
+      const session = await supabase.auth.getSession();
+
       const response = await fetch(`http://localhost:8080/api/events/${eventId}/register`, {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
           "Content-Type": "application/json",
-          Authorization: `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session.access_token)}`,
         },
       });
+
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message);
+        throw new Error(error.error || "Failed to register for event");
       }
-      fetchEvents(activeTab);
+
+      toast({
+        title: "Success!",
+        description: "You have successfully registered for the event.",
+      });
+
+      await Promise.all([fetchEvents(activeTab), fetchRegisteredEvents()]);
+      
       setIsRegisterDialogOpen(false);
     } catch (error) {
       console.error("Error registering for event:", error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
     }
+  };
+
+  const filteredEvents = events.filter(event =>
+    selectedEventType === "all" ? true : event.event_type === selectedEventType
+  );
+
+  const handleEventTypeClick = type => {
+    setSelectedEventType(type);
   };
 
   const getEventTypeColor = type => {
     const colors = {
-      Social: "bg-blue-100 text-blue-800",
-      Career: "bg-green-100 text-green-800",
-      Academic: "bg-purple-100 text-purple-800",
-      Cultural: "bg-yellow-100 text-yellow-800",
+      Social: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+      Career: "bg-green-100 text-green-800 hover:bg-green-200",
+      Academic: "bg-purple-100 text-purple-800 hover:bg-purple-200",
+      Cultural: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
     };
-    return colors[type] || "bg-gray-200 text-gray-800";
+    return colors[type] || "bg-gray-200 text-gray-800 hover:bg-gray-300";
   };
 
   const getStatusColor = status => {
     const colors = {
-      upcoming: "bg-green-100 text-green-800",
-      past: "bg-gray-100 text-gray-800",
-      cancelled: "bg-red-100 text-red-800",
+      upcoming: "bg-green-100 text-green-800 hover:bg-green-200",
+      past: "bg-gray-100 text-gray-800 hover:bg-gray-300",
+      cancelled: "bg-red-100 text-red-800 hover:bg-red-200",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
   const renderEventCard = event => {
     const eventDate = event.event_date ? new Date(event.event_date) : new Date();
+    const isRegisteredTab = activeTab === "registered";
+    const registrationDate = event.event_registrations?.[0]?.registration_date;
 
     return (
       <Card key={event.id} className="hover:shadow-lg transition-shadow">
@@ -175,6 +238,7 @@ const EventsPage = () => {
             <div className="flex gap-2">
               <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
               <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
+              {isRegisteredTab && <Badge className="bg-gray-100 text-green-800">Registered</Badge>}
             </div>
           </div>
         </CardHeader>
@@ -199,7 +263,7 @@ const EventsPage = () => {
             </div>
 
             <div className="flex justify-between items-center pt-4">
-              {event.status === "upcoming" && (
+              {event.status === "upcoming" && !isRegisteredTab && (
                 <Button
                   className="ml-auto"
                   disabled={event.current_attendees >= event.max_attendees}
@@ -239,25 +303,63 @@ const EventsPage = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Room Avalability</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={() => setIsRoomDialogOpen(true)}>Select Room</Button>
-              </CardContent>
-            </Card>
+            {isStudentLeader() && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Room Avalability</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => setIsRoomDialogOpen(true)}>Select Room</Button>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
                 <CardTitle>Event Types</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <Badge className={getEventTypeColor("Social")}>Social</Badge>
-                  <Badge className={getEventTypeColor("Career")}>Career</Badge>
-                  <Badge className={getEventTypeColor("Academic")}>Academic</Badge>
-                  <Badge className={getEventTypeColor("Cultural")}>Cultural</Badge>
+                <div className="space-y-2 space-x-2">
+                  <Badge
+                    className={`cursor-pointer ${
+                      selectedEventType === "all" ? "bg-gray-800 text-white" : "bg-gray-700"
+                    }`}
+                    onClick={() => handleEventTypeClick("all")}
+                  >
+                    All
+                  </Badge>
+                  <Badge
+                    className={`cursor-pointer ${
+                      selectedEventType === "Social" ? getEventTypeColor("Social") : "bg-gray-700"
+                    }`}
+                    onClick={() => handleEventTypeClick("Social")}
+                  >
+                    Social
+                  </Badge>
+                  <Badge
+                    className={`cursor-pointer ${
+                      selectedEventType === "Career" ? getEventTypeColor("Career") : "bg-gray-700"
+                    }`}
+                    onClick={() => handleEventTypeClick("Career")}
+                  >
+                    Career
+                  </Badge>
+                  <Badge
+                    className={`cursor-pointer ${
+                      selectedEventType === "Academic" ? getEventTypeColor("Academic") : "bg-gray-700"
+                    }`}
+                    onClick={() => handleEventTypeClick("Academic")}
+                  >
+                    Academic
+                  </Badge>
+                  <Badge
+                    className={`cursor-pointer ${
+                      selectedEventType === "Cultural" ? getEventTypeColor("Cultural") : "bg-gray-700"
+                    }`}
+                    onClick={() => handleEventTypeClick("Cultural")}
+                  >
+                    Cultural
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
@@ -270,6 +372,7 @@ const EventsPage = () => {
                   <TabsTrigger value="upcoming">Upcoming Events</TabsTrigger>
                   <TabsTrigger value="past">Past Events</TabsTrigger>
                   <TabsTrigger value="cancelled">Cancelled Events</TabsTrigger>
+                  <TabsTrigger value="registered">My Registrations</TabsTrigger>
                 </div>
                 {isStudentLeader() && (
                   <Button className="ml-auto" variant="default" onClick={() => setIsAddEventOpen(true)}>
@@ -312,6 +415,18 @@ const EventsPage = () => {
                   <div className="text-center text-gray-500 py-4">No cancelled events</div>
                 ) : (
                   events.map(event => renderEventCard(event))
+                )}
+              </TabsContent>
+
+              <TabsContent value="registered" className="space-y-6">
+                {loading ? (
+                  <div className="text-center py-4">Loading...</div>
+                ) : error ? (
+                  <div className="text-center text-red-500 py-4">{error}</div>
+                ) : registeredEvents.length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">You haven't registered for any events yet</div>
+                ) : (
+                  registeredEvents.map(event => renderEventCard(event))
                 )}
               </TabsContent>
             </Tabs>

@@ -23,3 +23,8 @@ type Registration struct {
 	UserID           string    `json:"user_id" binding:"required"`
 	RegistrationDate time.Time `json:"registration_date"`
 }
+
+type RegisteredEvent struct {
+	Event            Event     `json:"event"`
+	RegistrationDate time.Time `json:"registration_date"`
+}

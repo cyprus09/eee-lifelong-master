@@ -24,7 +24,7 @@ type EventHandler struct {
 
 func (h *EventHandler) checkSupabaseConnection() error {
 	// Try a simple query to test the connection
-	_, contentStr, err := h.client.From("events").
+	result, _, err := h.client.From("events").
 		Select("count", "*", false).
 		Execute()
 
@@ -32,7 +32,7 @@ func (h *EventHandler) checkSupabaseConnection() error {
 		return fmt.Errorf("failed to connect to Supabase: %v", err)
 	}
 
-	log.Printf("Supabase connection test result: %v", contentStr)
+	log.Printf("Supabase connection test result: %v", result)
 	return nil
 }
 
@@ -87,10 +87,9 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 	// Log the event creation attempt
 	log.Printf("Attempting to create event: %+v", event)
 
-	result, contentStr, err := h.client.From("events").Insert(&event, false, "*", "", "*").Execute()
+	result, _, err := h.client.From("events").Insert(&event, false, "*", "", "*").Execute()
 
 	log.Printf("Insert result: %+v", result)
-	log.Printf("Insert content: %s", contentStr)
 
 	if err != nil {
 		log.Printf("Error creating event: %v", err)
@@ -98,12 +97,22 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 		return
 	}
 
-	var createdEvent models.Event
-	if err := json.Unmarshal([]byte(fmt.Sprintf("%v", contentStr)), &createdEvent); err != nil {
+	var createdEvents []models.Event
+	if err := json.Unmarshal(result, &createdEvents); err != nil {
 		log.Printf("Error unmarshaling created event: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process created event"})
 		return
 	}
+
+	if len(createdEvents) == 0 {
+		log.Printf("No event was created")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No event was created"})
+		return
+	}
+
+	createdEvent := createdEvents[0]
+	log.Printf("Event created successfully with ID: %s", createdEvent.ID)
+	c.JSON(http.StatusCreated, createdEvent)
 
 	log.Printf("Event created successfully with ID: %s", event.ID)
 	c.JSON(http.StatusCreated, event)
@@ -171,12 +180,12 @@ func (h *EventHandler) GetEvents(c *gin.Context) {
 
 	// Log success and return results
 	log.Printf("Successfully retrieved %d events", len(events))
-	for _, event := range events {
-		log.Printf("Event: %s, Date: %s, Type: %s",
-			event.Title,
-			event.EventDate.Format(time.RFC3339),
-			event.EventType)
-	}
+	// for _, event := range events {
+	// 	log.Printf("Event: %s, Date: %s, Type: %s",
+	// 		event.Title,
+	// 		event.EventDate.Format(time.RFC3339),
+	// 		event.EventType)
+	// }
 
 	c.JSON(http.StatusOK, events)
 }
@@ -185,20 +194,26 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 	eventID := c.Param("id")
 	userID := c.GetString("userId")
 
+	log.Printf("Attempting to register user %s for event %s", userID, eventID)
+
+	client := h.client
+
 	// Check if already registered
 	var registrations []models.Registration
-	_, contentStr, err := h.client.From("event_registrations").
-		Select("*", "*", false).
+	result, _, err := client.From("event_registrations").
+		Select("*", "", false).
 		Filter("event_id", "eq", eventID).
 		Filter("user_id", "eq", userID).
 		Execute()
 
 	if err != nil {
+		log.Printf("Error checking registration: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check registration"})
 		return
 	}
 
-	if err := json.Unmarshal([]byte(fmt.Sprintf("%v", contentStr)), &registrations); err != nil {
+	if err := json.Unmarshal(result, &registrations); err != nil {
+		log.Printf("Error unmarshaling registrations: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process registration data"})
 		return
 	}
@@ -210,17 +225,19 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 
 	// Get event details
 	var events []models.Event
-	_, contentStr, err = h.client.From("events").
-		Select("*", "*", false).
+	result, _, err = h.client.From("events").
+		Select("*", "", false).
 		Filter("id", "eq", eventID).
 		Execute()
 
 	if err != nil {
+		log.Printf("Error fetching event details: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get event details"})
 		return
 	}
 
-	if err := json.Unmarshal([]byte(fmt.Sprintf("%v", contentStr)), &events); err != nil {
+	if err := json.Unmarshal(result, &events); err != nil {
+		log.Printf("Error unmarshaling event details: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process event data"})
 		return
 	}
@@ -238,15 +255,18 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 
 	// Register for event
 	registration := models.Registration{
-		EventID: eventID,
-		UserID:  userID,
+		ID:               uuid.New().String(),
+		EventID:          eventID,
+		UserID:           userID,
+		RegistrationDate: time.Now().UTC(),
 	}
 
 	_, _, err = h.client.From("event_registrations").
-		Insert(&registration, true, "event_id, user_id", "event_id", "*").
+		Insert(registration, false, "*", "", "*").
 		Execute()
 
 	if err != nil {
+		log.Printf("Error registering for event: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register"})
 		return
 	}
@@ -255,10 +275,8 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 	updateQuery := map[string]interface{}{
 		"current_attendees": event.CurrentAttendees + 1,
 	}
-	_, _, err = h.client.From("events").
-		Update(updateQuery, "current_attendees", "id").
-		Eq("id", eventID).
-		Execute()
+
+	_, _, err = h.client.From("events").Update(updateQuery, "current_attendees", "id").Eq("id", eventID).Execute()
 
 	if err != nil {
 		log.Printf("Error updating attendee count: %v", err)
@@ -271,15 +289,26 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 
 func (h *EventHandler) GetRegisteredEvents(c *gin.Context) {
 	userID := c.Param("userId")
+	log.Printf("Fetching registered events for user: %s", userID)
 
-	query := `
-		events(*),
-		event_registrations!inner(user_id)
-	`
-
-	_, contentStr, err := h.client.From("events").
-		Select(query, "*", false).
-		Filter("event_registrations.user_id", "eq", userID).
+	result, _, err := h.client.From("event_registrations").
+		Select(`
+			event:events(
+					id,
+					title,
+					description,
+					event_date,
+					venue,
+					max_attendees,
+					current_attendees,
+					event_type,
+					status,
+					created_by,
+					created_at,
+					updated_at
+			),
+			registration_date
+	`, "", false).Filter("user_id", "eq", userID).
 		Execute()
 
 	if err != nil {
@@ -288,13 +317,19 @@ func (h *EventHandler) GetRegisteredEvents(c *gin.Context) {
 		return
 	}
 
-	var events []models.Event
-	if err := json.Unmarshal([]byte(fmt.Sprintf("%v", contentStr)), &events); err != nil {
+	var registrations []models.RegisteredEvent
+	if err := json.Unmarshal(result, &registrations); err != nil {
 		log.Printf("Error unmarshaling events: %v", err)
+		log.Printf("JSON being unmarshaled: %s", string(result))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process events data"})
 		return
 	}
 
-	log.Printf("Returning %d registered events.", len(events))
+	events := make([]models.Event, 0, len(registrations))
+	for i, reg := range registrations {
+		events[i] = reg.Event
+	}
+
+	log.Printf("Successfully retrieved %d registered events", len(events))
 	c.JSON(http.StatusOK, events)
 }
