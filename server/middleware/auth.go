@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,26 +41,35 @@ func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// Get user role with better error handling
+		// Get user role with retry logic
 		var role string
-		err = db.QueryRow("SELECT role FROM profiles WHERE id = $1", user.ID).Scan(&role)
-		if err != nil {
+		for attempts := 0; attempts < 3; attempts++ {
+			err = db.QueryRow("SELECT role FROM profiles WHERE id = $1", user.ID).Scan(&role)
+			if err == nil {
+				break
+			}
+
 			if err == sql.ErrNoRows {
-				log.Printf("No profile found for user %s, setting default role", user.ID)
-				role = "student" // Default role
-			} else {
-				log.Printf("Database error fetching role: %v", err)
-				// Create profile if it doesn't exist
+				// Try to create profile
 				_, err = db.Exec(`
                     INSERT INTO profiles (id, role, username, updated_at)
                     VALUES ($1, 'student', $2, NOW())
                     ON CONFLICT (id) DO NOTHING
                 `, user.ID, user.Email)
 				if err != nil {
-					log.Printf("Error creating profile: %v", err)
+					log.Printf("Error creating profile on attempt %d: %v", attempts+1, err)
+					continue
 				}
-				role = "student" // Set default role after attempt to create profile
+				role = "student"
+				break
 			}
+
+			log.Printf("Attempt %d: Database error fetching role: %v", attempts+1, err)
+			time.Sleep(time.Millisecond * 100)
+		}
+
+		if role == "" {
+			role = "student" // Default fallback
 		}
 
 		log.Printf("User %s assigned role: %s", user.ID, role)

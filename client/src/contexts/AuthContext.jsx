@@ -167,9 +167,7 @@ export const AuthProvider = ({ children }) => {
       if (error) throw error;
 
       setUser(null);
-      if (!userRole) {
-        setUserRole(null);
-      }
+      setUserRole(null);
 
       window.localStorage.removeItem("supabase.auth.token");
 
@@ -194,31 +192,27 @@ export const AuthProvider = ({ children }) => {
 
         if (session?.user) {
           setUser(session.user);
-          // Attempt to fetch role multiple times if needed
-          let attempts = 0;
-          const maxAttempts = 3;
+          // Make a direct API call to get the role instead of using fetchUserRole
+          try {
+            const response = await fetch("http://localhost:8080/api/users/role", {
+              headers: {
+                Authorization: `Bearer ${session.access_token}`,
+              },
+            });
 
-          while (attempts < maxAttempts) {
-            console.log(`Attempt ${attempts + 1} to fetch role`);
-            const role = await fetchUserRole(session.user.id);
-            if (role) {
-              console.log("Role fetched successfully:", role);
-              break;
+            if (response.ok) {
+              const { role } = await response.json();
+              console.log("Role fetched from API:", role);
+              setUserRole(role);
+            } else {
+              console.error("Failed to fetch role from API");
             }
-            attempts++;
-            if (attempts < maxAttempts) {
-              console.log("Waiting before next attempt...");
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between attempts
-            }
+          } catch (error) {
+            console.error("Error fetching role from API:", error);
           }
-        } else {
-          // Make sure to clear states if no session
-          setUser(null);
-          setUserRole(null);
         }
       } catch (error) {
         console.error("Error in initAuth:", error);
-        // Clear states on error
         setUser(null);
         setUserRole(null);
       } finally {
@@ -244,16 +238,20 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         setUser(session.user);
         // Add retry mechanism here as well
-        let attempts = 0;
-        const maxAttempts = 3;
+        try {
+          const response = await fetch("http://localhost:8080/api/users/role", {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
 
-        while (attempts < maxAttempts) {
-          const role = await fetchUserRole(session.user.id);
-          if (role) break;
-          attempts++;
-          if (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+          if (response.ok) {
+            const { role } = await response.json();
+            console.log("Role fetched from API on auth change:", role);
+            setUserRole(role);
           }
+        } catch (error) {
+          console.error("Error fetching role on auth change:", error);
         }
       }
       setLoading(false);

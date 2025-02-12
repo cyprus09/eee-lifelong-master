@@ -48,7 +48,7 @@ const Navbar = () => {
         description: "You have been logged out of your account.",
       });
 
-      window.location.href = "/login";
+      navigate("/login");
     } catch (error) {
       console.error("Error logging out:", error);
       toast({
