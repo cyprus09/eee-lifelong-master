@@ -79,20 +79,33 @@ const EventsPage = () => {
         throw new Error("No active session");
       }
 
+      console.log("Fetching events for user:", session.data.session.user.id);
+
       const response = await fetch(`http://localhost:8080/api/events/registered/${session.data.session.user.id}`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
         },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch registered events");
+      const text = await response.text();
+      console.log("Raw response text:", text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("Error parsing JSON:", e);
+        throw new Error("Invalid response format");
       }
 
-      const data = await response.json();
-      console.log("Fetched registered events:", data);
-      setRegisteredEvents(data);
+      console.log("Parsed data:", data);
+
+      const validEvents = Array.isArray(data)
+        ? data.filter(event => event && typeof event === "object" && event.id && event.title)
+        : [];
+
+      console.log("Valid events:", validEvents);
+      setRegisteredEvents(validEvents);
     } catch (error) {
       console.error("Error fetching registered events:", error);
       setError(error.message);
@@ -173,7 +186,7 @@ const EventsPage = () => {
       });
 
       await Promise.all([fetchEvents(activeTab), fetchRegisteredEvents()]);
-      
+
       setIsRegisterDialogOpen(false);
     } catch (error) {
       console.error("Error registering for event:", error);
@@ -188,6 +201,18 @@ const EventsPage = () => {
   const filteredEvents = events.filter(event =>
     selectedEventType === "all" ? true : event.event_type === selectedEventType
   );
+
+  const formatEventDate = dateString => {
+    if (!dateString || dateString === "0001-01-01T00:00:00Z") {
+      return "Date not set";
+    }
+    return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   const handleEventTypeClick = type => {
     setSelectedEventType(type);
@@ -225,14 +250,7 @@ const EventsPage = () => {
               <CardTitle className="text-xl font-bold">{event.title}</CardTitle>
               <div className="flex items-center gap-2 mt-2 text-gray-600">
                 <CalendarIcon className="h-4 w-4" />
-                <span>
-                  {eventDate.toLocaleDateString("en-US", {
-                    weekday: "long",
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </span>
+                <span>{formatEventDate(event.event_date)}</span>
               </div>
             </div>
             <div className="flex gap-2">
@@ -248,7 +266,7 @@ const EventsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-gray-600">
                 <Clock className="h-4 w-4" />
-                <span>{new Date(event.event_date).toLocaleTimeString()}</span>
+                <span>{formatEventDate(event.event_date)}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="h-4 w-4" />

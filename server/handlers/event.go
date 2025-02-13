@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -261,7 +262,7 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 		RegistrationDate: time.Now().UTC(),
 	}
 
-	_, _, err = h.client.From("event_registrations").
+	result, _, err = h.client.From("event_registrations").
 		Insert(registration, false, "*", "", "*").
 		Execute()
 
@@ -270,6 +271,8 @@ func (h *EventHandler) RegisterForEvent(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register"})
 		return
 	}
+
+	log.Printf("Raw response to Supabase: %s", string(result))
 
 	// Update attendee count
 	updateQuery := map[string]interface{}{
@@ -291,45 +294,66 @@ func (h *EventHandler) GetRegisteredEvents(c *gin.Context) {
 	userID := c.Param("userId")
 	log.Printf("Fetching registered events for user: %s", userID)
 
-	result, _, err := h.client.From("event_registrations").
-		Select(`
-			event:events(
-					id,
-					title,
-					description,
-					event_date,
-					venue,
-					max_attendees,
-					current_attendees,
-					event_type,
-					status,
-					created_by,
-					created_at,
-					updated_at
-			),
-			registration_date
-	`, "", false).Filter("user_id", "eq", userID).
+	// First get the event IDs from registrations
+	regResult, _, err := h.client.From("event_registrations").
+		Select("event_id", "", false).
+		Filter("user_id", "eq", userID).
 		Execute()
 
 	if err != nil {
-		log.Printf("Error fetching registered events: %v", err)
+		log.Printf("Error fetching registrations: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	var registrations []models.RegisteredEvent
-	if err := json.Unmarshal(result, &registrations); err != nil {
+	// Parse registration results to get event IDs
+	var registrations []struct {
+		EventID string `json:"event_id"`
+	}
+	if err := json.Unmarshal(regResult, &registrations); err != nil {
+		log.Printf("Error unmarshaling registrations: %v", err)
+		return
+	}
+
+	// Extract event IDs
+	eventIDs := make([]string, len(registrations))
+	for i, reg := range registrations {
+		eventIDs[i] = reg.EventID
+	}
+
+	if len(eventIDs) == 0 {
+		// Return empty array if no registrations
+		c.JSON(http.StatusOK, []models.Event{})
+		return
+	}
+
+	// Now fetch the events using the event IDs
+	result, _, err := h.client.From("events").
+		Select("*", "", false).
+		Filter("id", "in", fmt.Sprintf("(%s)", strings.Join(eventIDs, ","))).
+		Execute()
+
+	if err != nil {
+		log.Printf("Error fetching events: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("Raw response from Supabase: %s", string(result))
+
+	var events []models.Event
+	if err := json.Unmarshal(result, &events); err != nil {
 		log.Printf("Error unmarshaling events: %v", err)
 		log.Printf("JSON being unmarshaled: %s", string(result))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process events data"})
 		return
 	}
 
-	events := make([]models.Event, 0, len(registrations))
-	for i, reg := range registrations {
-		events[i] = reg.Event
+	// Debug logging
+	log.Printf("Processed %d events", len(events))
+	for i, event := range events {
+		log.Printf("Event %d: ID=%s, Title=%s", i+1, event.ID, event.Title)
 	}
 
-	log.Printf("Successfully retrieved %d registered events", len(events))
 	c.JSON(http.StatusOK, events)
 }
