@@ -2,21 +2,25 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import Navbar from "@/components/common/Navbar";
 import Footer from "../../components/common/Footer";
+import AddEventForm from "../leader/AddEventForm";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar as CalendarIcon, Users, GraduationCap, BookOpen, Bell } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import CarouselSlides from "@/components/common/CarouselSlides";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
 
 const HomePage = () => {
-  const { user, userRole, hasRole } = useAuth();
+  const { user, userRole, hasRole, isStudentLeader } = useAuth();
   const [date, setDate] = useState(new Date());
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -36,17 +40,58 @@ const HomePage = () => {
     }
   }, [user, userRole]);
 
+    // Handle event creation
+    const handleSubmit = async eventData => {
+      try {
+        const session = await supabase.auth.getSession();
+        const response = await fetch("http://localhost:8080/api/events", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.data.session.access_token}`,
+          },
+          body: JSON.stringify({
+            ...eventData,
+            status: "upcoming",
+            venue: selectedRoom?.name || eventData.venue,
+          }),
+        });
+  
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create event");
+        }
+  
+        setIsAddEventOpen(false);
+  
+        toast({
+          title: "Success!",
+          description: "Event created successfully.",
+        });
+      } catch (error) {
+        console.error("Error creating event:", error);
+        toast({
+          title: "Event creation failed",
+          description: "There was a problem creating the event. Please try again.",
+        });
+      }
+    };
+
   const fetchUpcomingEvents = async () => {
     setIsLoading(true);
     try {
       const session = await supabase.auth.getSession();
       if (!session.data.session) {
-        console.log("No active session found");
-        return;
+        throw new Error("No active session");
       }
-      const response = await fetch("http://localhost:8080/api/events?type=upcoming", {
+
+      const url = `http://localhost:8080/api/events`;
+      console.log("Fetching all events from:", url);
+
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
         },
       });
 
@@ -58,8 +103,8 @@ const HomePage = () => {
       const data = await response.json();
       setUpcomingEvents(data || []);
     } catch (error) {
-      console.error("Error fetching upcoming events:", error);
-      setUpcomingEvents([]);
+      console.error("Error fetching events:", error);
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -162,8 +207,11 @@ const HomePage = () => {
                 <div className="flex justify-between items-center">
                   <h3 className="font-semibold">Quick Actions</h3>
                   <div className="flex gap-4">
-                    <Button onClick={() => navigate("/events/create")}>Create Event</Button>
-                    <Button variant="outline" onClick={() => navigate("/events/manage")}>
+                    <Button onClick={() => setIsAddEventOpen(true)}>
+                      <Plus className="h-4 w-3 mr-2" />
+                      Create Event
+                    </Button>
+                    <Button variant="outline" onClick={() => navigate("/events")}>
                       Manage Events
                     </Button>
                   </div>
@@ -227,6 +275,10 @@ const HomePage = () => {
           </Card>
         </div>
       </div>
+
+      {isStudentLeader() && (
+        <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />
+      )}
 
       <Footer />
     </div>

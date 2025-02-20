@@ -11,6 +11,7 @@ import Footer from "../../components/common/Footer";
 import AddEventForm from "../leader/AddEventForm";
 import { Plus } from "lucide-react";
 import RegisterDialog from "../../components/common/RegisterDialog";
+import CancelDialog from "../../components/common/CancelDialog";
 import RoomManagementDialog from "../leader/RoomManagementDialog";
 import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
@@ -21,6 +22,7 @@ const EventsPage = () => {
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -176,6 +178,38 @@ const EventsPage = () => {
     }
   };
 
+  const handleCancelEvent = async eventId => {
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch(`http://localhost:8080/api/events/${eventId}/cancel`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to cancel event");
+      }
+
+      toast({
+        title: "Success",
+        description: "Event has been cancelled successfully",
+      });
+
+      await fetchAllEvents();
+      setIsCancelDialogOpen(false);
+    } catch (error) {
+      console.error("Error cancelling event:", error);
+      toast({
+        title: "Error",
+        description: "Failed to cancel event. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Handle event creation
   const handleSubmit = async eventData => {
     try {
@@ -254,6 +288,7 @@ const EventsPage = () => {
     const eventDate = event.event_date ? new Date(event.event_date) : new Date();
     const isRegisteredTab = activeTab === "registered";
     const showRegisterButton = event.status === "upcoming" && !isRegisteredTab;
+    const showCancelButton = isStudentLeader() && event.status === "upcoming";
 
     return (
       <Card key={event.id} className="hover:shadow-lg transition-shadow">
@@ -293,10 +328,9 @@ const EventsPage = () => {
               </div>
             </div>
 
-            <div className="flex justify-between items-center pt-4">
-              {showRegisterButton && !isRegisteredTab && (
+            <div className="flex justify-end items-center gap-4 pt-4">
+              {showRegisterButton && (
                 <Button
-                  className="ml-auto"
                   disabled={event.current_attendees >= event.max_attendees}
                   onClick={() => {
                     setSelectedEvent(event);
@@ -304,6 +338,17 @@ const EventsPage = () => {
                   }}
                 >
                   {event.current_attendees >= event.max_attendees ? "Event Full" : "Register Now"}
+                </Button>
+              )}
+              {showCancelButton && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setSelectedEvent(event);
+                    setIsCancelDialogOpen(true);
+                  }}
+                >
+                  Cancel Event
                 </Button>
               )}
             </div>
@@ -439,6 +484,14 @@ const EventsPage = () => {
         onConfirm={() => handleRegister(selectedEvent?.id)}
         event={selectedEvent}
       />
+
+      <CancelDialog
+        isOpen={isCancelDialogOpen}
+        onClose={() => setIsCancelDialogOpen(false)}
+        onConfirm={() => handleCancelEvent(selectedEvent?.id)}
+        event={selectedEvent}
+      />
+
       <RoomManagementDialog
         isOpen={isRoomDialogOpen}
         onClose={() => setIsRoomDialogOpen(false)}

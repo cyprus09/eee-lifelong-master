@@ -349,3 +349,74 @@ func (h *EventHandler) GetRegisteredEvents(c *gin.Context) {
 
 	c.JSON(http.StatusOK, events)
 }
+
+func (h *EventHandler) CancelEvent(c *gin.Context) {
+	eventID := c.Param("id")
+	if eventID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Event ID is required"})
+		return
+	}
+
+	var status string
+	err := h.db.QueryRow("SELECT status FROM events WHERE id = $1", eventID).Scan(&status)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check event status"})
+		return
+	}
+
+	if status != "upcoming" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Only upcoming events can be cancelled"})
+		return
+	}
+
+	userRole := c.GetString("userRole")
+	if userRole != "student_leader" && userRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only student leaders can cancel events"})
+		return
+	}
+
+	tx, err := h.db.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`
+			UPDATE events 
+			SET status = 'cancelled', 
+					updated_at = NOW() 
+			WHERE id = $1 
+			AND status = 'upcoming'`,
+		eventID)
+	if err != nil {
+		log.Printf("Error cancelling event: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to cancel event"})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit changes"})
+		return
+	}
+
+	result, _, err := h.client.From("events").
+		Update(map[string]interface{}{
+			"status":     "cancelled",
+			"updated_at": time.Now(),
+		}, "", "").
+		Eq("id", eventID).
+		Execute()
+
+	if err != nil {
+		log.Printf("Error updating event in Supabase: %v", err)
+	}
+
+	log.Printf("Successfully cancelled event %s: %s", eventID, string(result))
+	c.JSON(http.StatusOK, gin.H{"message": "Event cancelled successfully"})
+}
