@@ -17,7 +17,7 @@ import { toast } from "@/hooks/use-toast";
 
 const EventsPage = () => {
   const { user, userRole, isStudentLeader } = useAuth();
-  const [events, setEvents] = useState([]);
+  const [allEvents, setAllEvents] = useState([]); // Store all events
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
@@ -30,7 +30,8 @@ const EventsPage = () => {
   const [activeTab, setActiveTab] = useState("upcoming");
   const [selectedEventType, setSelectedEventType] = useState("all");
 
-  const fetchEvents = async (status = "upcoming") => {
+  // Fetch all events once
+  const fetchAllEvents = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -40,8 +41,8 @@ const EventsPage = () => {
         throw new Error("No active session");
       }
 
-      const url = `http://localhost:8080/api/events?type=${status}`;
-      console.log("Fetching events from:", url);
+      const url = `http://localhost:8080/api/events`;
+      console.log("Fetching all events from:", url);
 
       const response = await fetch(url, {
         headers: {
@@ -50,17 +51,14 @@ const EventsPage = () => {
         },
       });
 
-      console.log("Response headers:", Object.fromEntries(response.headers.entries()));
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch events");
       }
 
       const data = await response.json();
-      console.log("Raw API Response:", response.text());
       console.log("Parsed Data:", data);
-      setEvents(data || []);
+      setAllEvents(data || []);
     } catch (error) {
       console.error("Error fetching events:", error);
       setError(error.message);
@@ -69,17 +67,13 @@ const EventsPage = () => {
     }
   };
 
+  // Fetch registered events once
   const fetchRegisteredEvents = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
       const session = await supabase.auth.getSession();
       if (!session.data.session) {
         throw new Error("No active session");
       }
-
-      console.log("Fetching events for user:", session.data.session.user.id);
 
       const response = await fetch(`http://localhost:8080/api/events/registered/${session.data.session.user.id}`, {
         headers: {
@@ -87,50 +81,102 @@ const EventsPage = () => {
         },
       });
 
-      const text = await response.text();
-      console.log("Raw response text:", text);
-
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        console.error("Error parsing JSON:", e);
-        throw new Error("Invalid response format");
-      }
-
-      console.log("Parsed data:", data);
-
-      const validEvents = Array.isArray(data)
-        ? data.filter(event => event && typeof event === "object" && event.id && event.title)
-        : [];
-
-      console.log("Valid events:", validEvents);
-      setRegisteredEvents(validEvents);
+      const data = await response.json();
+      setRegisteredEvents(data || []);
     } catch (error) {
       console.error("Error fetching registered events:", error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
     }
   };
 
+  // Fetch all data once on component mount
   useEffect(() => {
+    const fetchInitialData = async () => {
+      await Promise.all([fetchAllEvents(), fetchRegisteredEvents()]);
+    };
+    fetchInitialData();
+  }, []);
+
+  const getFilteredEvents = () => {
     if (activeTab === "registered") {
-      fetchRegisteredEvents();
-    } else {
-      console.log("Fetching events for tab:", activeTab);
-      fetchEvents(activeTab);
+      return registeredEvents.filter(event =>
+        selectedEventType === "all" ? true : event.event_type === selectedEventType
+      );
     }
-  }, [activeTab]);
+
+    const now = new Date();
+    return allEvents.filter(event => {
+      const eventDate = new Date(event.event_date);
+      const matchesEventType = selectedEventType === "all" || event.event_type === selectedEventType;
+
+      switch (activeTab) {
+        case "upcoming":
+          return eventDate > now && event.status === "upcoming" && matchesEventType;
+        case "past":
+          return eventDate < now && event.status === "past" && matchesEventType;
+        case "cancelled":
+          return event.status === "cancelled" && matchesEventType;
+        default:
+          return matchesEventType;
+      }
+    });
+  };
 
   const handleRoomSelection = room => {
     setSelectedRoom(room);
+
     setIsRoomDialogOpen(false);
-    // todo
-    // If add event form is open, it will receive the selected room
-    // If not, we'll store it for when the form opens
+
+    if (isAddEventOpen) {
+      setEventFormData(prev => ({
+        ...prev,
+        venue: room.name,
+      }));
+    } else {
+      setIsAddEventOpen(true);
+    }
+
+    toast({
+      title: "Room Selected",
+      description: `Selected ${room.name} (Capacity: ${room.capacity})`,
+    });
   };
 
+  // Handle event registration
+  const handleRegister = async eventId => {
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch(`http://localhost:8080/api/events/${eventId}/register`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to register for event");
+      }
+
+      toast({
+        title: "Success!",
+        description: "You have successfully registered for the event.",
+      });
+
+      // Refresh both event lists after registration
+      await Promise.all([fetchAllEvents(), fetchRegisteredEvents()]);
+      setIsRegisterDialogOpen(false);
+    } catch (error) {
+      console.error("Error registering for event:", error);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle event creation
   const handleSubmit = async eventData => {
     try {
       const session = await supabase.auth.getSession();
@@ -152,8 +198,14 @@ const EventsPage = () => {
         throw new Error(errorData.error || "Failed to create event");
       }
 
-      await fetchEvents(activeTab);
+      // Refresh events after creating a new one
+      await fetchAllEvents();
       setIsAddEventOpen(false);
+
+      toast({
+        title: "Success!",
+        description: "Event created successfully.",
+      });
     } catch (error) {
       console.error("Error creating event:", error);
       toast({
@@ -162,45 +214,6 @@ const EventsPage = () => {
       });
     }
   };
-
-  const handleRegister = async eventId => {
-    try {
-      const session = await supabase.auth.getSession();
-
-      const response = await fetch(`http://localhost:8080/api/events/${eventId}/register`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.data.session.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to register for event");
-      }
-
-      toast({
-        title: "Success!",
-        description: "You have successfully registered for the event.",
-      });
-
-      await Promise.all([fetchEvents(activeTab), fetchRegisteredEvents()]);
-
-      setIsRegisterDialogOpen(false);
-    } catch (error) {
-      console.error("Error registering for event:", error);
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const filteredEvents = events.filter(event =>
-    selectedEventType === "all" ? true : event.event_type === selectedEventType
-  );
 
   const formatEventDate = dateString => {
     if (!dateString || dateString === "0001-01-01T00:00:00Z") {
@@ -240,7 +253,7 @@ const EventsPage = () => {
   const renderEventCard = event => {
     const eventDate = event.event_date ? new Date(event.event_date) : new Date();
     const isRegisteredTab = activeTab === "registered";
-    const registrationDate = event.event_registrations?.[0]?.registration_date;
+    const showRegisterButton = event.status === "upcoming" && !isRegisteredTab;
 
     return (
       <Card key={event.id} className="hover:shadow-lg transition-shadow">
@@ -256,7 +269,7 @@ const EventsPage = () => {
             <div className="flex gap-2">
               <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
               <Badge className={getStatusColor(event.status)}>{event.status}</Badge>
-              {isRegisteredTab && <Badge className="bg-gray-100 text-green-800">Registered</Badge>}
+              {isRegisteredTab && <Badge className="bg-gray-100 text-green-800 hover:bg-green-200">Registered</Badge>}
             </div>
           </div>
         </CardHeader>
@@ -281,7 +294,7 @@ const EventsPage = () => {
             </div>
 
             <div className="flex justify-between items-center pt-4">
-              {event.status === "upcoming" && !isRegisteredTab && (
+              {showRegisterButton && !isRegisteredTab && (
                 <Button
                   className="ml-auto"
                   disabled={event.current_attendees >= event.max_attendees}
@@ -324,7 +337,7 @@ const EventsPage = () => {
             {isStudentLeader() && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Room Avalability</CardTitle>
+                  <CardTitle>Room Availability</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Button onClick={() => setIsRoomDialogOpen(true)}>Select Room</Button>
@@ -400,51 +413,15 @@ const EventsPage = () => {
                 )}
               </TabsList>
 
-              <TabsContent value="upcoming" className="space-y-6">
+              <TabsContent value={activeTab} className="space-y-6">
                 {loading ? (
                   <div className="text-center py-4">Loading...</div>
                 ) : error ? (
                   <div className="text-center text-red-500 py-4">{error}</div>
-                ) : events.length === 0 ? (
-                  <div className="text-center text-gray-500 py-4">No upcoming events</div>
+                ) : getFilteredEvents().length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">No events found</div>
                 ) : (
-                  events.map(event => renderEventCard(event))
-                )}
-              </TabsContent>
-
-              <TabsContent value="past" className="space-y-6">
-                {loading ? (
-                  <div className="text-center py-4">Loading...</div>
-                ) : error ? (
-                  <div className="text-center text-red-500 py-4">{error}</div>
-                ) : events.length === 0 ? (
-                  <div className="text-center text-gray-500 py-4">No past events</div>
-                ) : (
-                  events.map(event => renderEventCard(event))
-                )}
-              </TabsContent>
-
-              <TabsContent value="cancelled" className="space-y-6">
-                {loading ? (
-                  <div className="text-center py-4">Loading...</div>
-                ) : error ? (
-                  <div className="text-center text-red-500 py-4">{error}</div>
-                ) : events.length === 0 ? (
-                  <div className="text-center text-gray-500 py-4">No cancelled events</div>
-                ) : (
-                  events.map(event => renderEventCard(event))
-                )}
-              </TabsContent>
-
-              <TabsContent value="registered" className="space-y-6">
-                {loading ? (
-                  <div className="text-center py-4">Loading...</div>
-                ) : error ? (
-                  <div className="text-center text-red-500 py-4">{error}</div>
-                ) : registeredEvents.length === 0 ? (
-                  <div className="text-center text-gray-500 py-4">You haven't registered for any events yet</div>
-                ) : (
-                  registeredEvents.map(event => renderEventCard(event))
+                  getFilteredEvents().map(event => renderEventCard(event))
                 )}
               </TabsContent>
             </Tabs>

@@ -116,6 +116,7 @@ func main() {
 		studentLeader.Use(middleware.RequireRole("student_leader"))
 		{
 			studentLeader.POST("/events", eventHandler.CreateEvent)
+			router.GET("/api/rooms/availability", middleware.AuthMiddleware(db), eventHandler.GetRoomAvailability)
 		}
 	}
 

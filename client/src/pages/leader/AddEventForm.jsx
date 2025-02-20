@@ -13,11 +13,11 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
     title: "",
     event_type: "",
     event_date: new Date(),
-    event_time: "12:00", // Default to noon
+    event_time: "12:00",
     venue: "",
     max_attendees: "",
     description: "",
-    status: "upcoming", // Default status
+    status: "upcoming",
   });
 
   const handleChange = (field, value) => {
@@ -30,7 +30,6 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
   const handleSubmit = async e => {
     e.preventDefault();
     try {
-      // Combine date and time for event_date
       const dateObj = new Date(formData.event_date);
       const [hours, minutes] = formData.event_time.split(":");
       dateObj.setHours(parseInt(hours), parseInt(minutes), 0);
@@ -39,10 +38,9 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
         ...formData,
         event_date: dateObj.toISOString(),
         max_attendees: parseInt(formData.max_attendees),
-        current_attendees: 0, // Initialize with 0 attendees
+        current_attendees: 0,
       };
 
-      // Remove the event_time field as it's only used for form handling
       delete formattedData.event_time;
 
       await onSubmit(formattedData);

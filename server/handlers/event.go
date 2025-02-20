@@ -37,7 +37,6 @@ func (h *EventHandler) checkSupabaseConnection() error {
 	return nil
 }
 
-// Add this to your NewEventHandler function:
 func NewEventHandler(db *sql.DB) *EventHandler {
 	supabaseUrl := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -74,7 +73,6 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 		return
 	}
 
-	// Generate a new UUID for the event
 	event.ID = uuid.New().String()
 
 	// Set default values
@@ -139,8 +137,8 @@ func (h *EventHandler) UpdatePastEvents() error {
 func (h *EventHandler) GetEvents(c *gin.Context) {
 	log.Printf("GetEvents called with token: %v", c.GetHeader("Authorization") != "")
 
-	eventType := c.Query("type")
-	log.Printf("Event type filter: %s", eventType)
+	eventStatus := c.Query("status")
+	log.Printf("Event status filter: %s", eventStatus)
 
 	// Basic select with all needed fields
 	query := h.client.From("events").Select("*", "", false)
@@ -148,14 +146,14 @@ func (h *EventHandler) GetEvents(c *gin.Context) {
 
 	// Debug current time
 	now := time.Now().Format(time.RFC3339)
-	log.Printf("Query params: type=%s now=%s", eventType, now)
+	log.Printf("Query params: type=%s now=%s", eventStatus, now)
 
 	// Add filters based on type
-	switch eventType {
+	switch eventStatus {
 	case "upcoming":
 		query = query.Filter("event_date", "gt", now).Filter("status", "eq", "upcoming").Order("event_date", &postgrest.OrderOpts{Ascending: true})
 	case "past":
-		query = query.Filter("event_date", "lt", now).Filter("status", "eq", "upcoming").Order("event_date", &postgrest.OrderOpts{Ascending: false})
+		query = query.Filter("event_date", "lt", now).Filter("status", "eq", "past").Order("event_date", &postgrest.OrderOpts{Ascending: false})
 	case "cancelled":
 		query = query.Filter("status", "eq", "cancelled")
 	}
@@ -168,7 +166,7 @@ func (h *EventHandler) GetEvents(c *gin.Context) {
 		return
 	}
 
-	// log.Printf("Query result: %+v", result)
+	log.Printf("Query result: %s", string(result))
 
 	// Try to unmarshal the response
 	var events []models.Event
@@ -181,12 +179,6 @@ func (h *EventHandler) GetEvents(c *gin.Context) {
 
 	// Log success and return results
 	log.Printf("Successfully retrieved %d events", len(events))
-	// for _, event := range events {
-	// 	log.Printf("Event: %s, Date: %s, Type: %s",
-	// 		event.Title,
-	// 		event.EventDate.Format(time.RFC3339),
-	// 		event.EventType)
-	// }
 
 	c.JSON(http.StatusOK, events)
 }

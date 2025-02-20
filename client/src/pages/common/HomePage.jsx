@@ -50,7 +50,7 @@ const HomePage = () => {
         },
       });
 
-      console.log(session.data.session.access_token);
+      // console.log(session.data.session.access_token);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -204,11 +204,17 @@ const HomePage = () => {
                 {isLoading ? (
                   <p>Loading events...</p>
                 ) : upcomingEvents?.length > 0 ? (
-                  upcomingEvents.map(event => (
+                  upcomingEvents.slice(0, 3).map(event => (
                     <div key={event.id} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-muted-foreground">{new Date(event.date).toLocaleDateString()}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {event.date
+                            ? isNaN(new Date(event.date.replace(" ", "T")).getTime())
+                              ? "Invalid Date"
+                              : new Date(event.date.replace(" ", "T")).toLocaleDateString()
+                            : "Date Not Available"}
+                        </p>
                       </div>
                       <Badge className={getEventTypeColor(event.type)}>{event.type}</Badge>
                     </div>
