@@ -1,25 +1,20 @@
+import React from "react";
 import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar } from "@/components/ui/calendar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar as CalendarIcon,
   MapPin,
-  Clock,
   Users,
   Plus,
   ChevronRight,
   AlertTriangle,
-  CheckCircle,
   BarChart2,
-  User,
-  Filter,
-  Layers,
   Home,
-  Settings,
   Download,
   Trash2,
   Edit,
@@ -29,20 +24,13 @@ import Navbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
 import AddEventForm from "../leader/AddEventForm";
 import RoomManagementDialog from "../leader/RoomManagementDialog";
+import ExportDialog from "../../components/common/ExportDialog";
 import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
 import CancelDialog from "../../components/common/CancelDialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,20 +39,22 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const StudentLeaderDashboard = () => {
-  const { user, userRole, isStudentLeader } = useAuth();
-  const [allEvents, setAllEvents] = useState([]); // Store all events
-  const [registeredEvents, setRegisteredEvents] = useState([]);
+  const { user, isStudentLeader } = useAuth();
+  const [allEvents, setAllEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
   const [isAttendeeDialogOpen, setIsAttendeeDialogOpen] = useState(false);
+  const [registeredEvents, setRegisteredEvents] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [eventFormData, setEventFormData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedEventType, setSelectedEventType] = useState("all");
+  const [selectedEventStatus, setSelectedEventStatus] = useState("all");
   const [attendees, setAttendees] = useState([]);
   const [eventStats, setEventStats] = useState({
     totalEvents: 0,
@@ -105,7 +95,7 @@ const StudentLeaderDashboard = () => {
       }
 
       const data = await response.json();
-      console.log("Parsed Data:", data);
+      // console.log("Parsed Data:", data);
       setAllEvents(data || []);
 
       // Calculate statistics
@@ -237,16 +227,19 @@ const StudentLeaderDashboard = () => {
       const eventDate = new Date(event.event_date);
       const matchesEventType = selectedEventType === "all" || event.event_type === selectedEventType;
 
-      switch (activeTab) {
-        case "upcoming":
-          return eventDate > now && event.status === "upcoming" && matchesEventType;
-        case "past":
-          return eventDate < now && event.status === "past" && matchesEventType;
-        case "cancelled":
-          return event.status === "cancelled" && matchesEventType;
-        default:
-          return matchesEventType;
+      let matchesStatus;
+
+      if (selectedEventStatus === "all") {
+        matchesStatus = true;
+      } else if (selectedEventStatus === "upcoming") {
+        matchesStatus = eventDate > now && event.status === "upcoming";
+      } else if (selectedEventStatus === "past") {
+        matchesStatus = eventDate < now && event.status === "past";
+      } else if (selectedEventStatus === "cancelled") {
+        matchesStatus = event.status === "cancelled";
       }
+
+      return matchesEventType && matchesStatus;
     });
   };
 
@@ -311,10 +304,9 @@ const StudentLeaderDashboard = () => {
   const handleCloseDialog = () => {
     setIsAttendeeDialogOpen(false);
     setAttendees([]);
-    setSelectedEvent(null); 
-    
-    setTimeout(() => {
-    }, 0);
+    setSelectedEvent(null);
+
+    setTimeout(() => {}, 0);
   };
 
   const handleCancelEvent = async eventId => {
@@ -366,19 +358,15 @@ const StudentLeaderDashboard = () => {
     });
   };
 
-  const formatEventTime = dateString => {
-    if (!dateString || dateString === "0001-01-01T00:00:00Z") {
-      return "Time not set";
-    }
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const handleEventTypeClick = type => {
-    setSelectedEventType(type);
-  };
+  // const formatEventTime = dateString => {
+  //   if (!dateString || dateString === "0001-01-01T00:00:00Z") {
+  //     return "Time not set";
+  //   }
+  //   return new Date(dateString).toLocaleTimeString("en-US", {
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //   });
+  // };
 
   const getEventTypeColor = type => {
     const colors = {
@@ -405,18 +393,6 @@ const StudentLeaderDashboard = () => {
     setIsAttendeeDialogOpen(true);
   };
 
-  const handleExportData = format => {
-    // Mock function for exporting data
-    toast({
-      title: "Export Started",
-      description: `Exporting event data as ${format.toUpperCase()}...`,
-    });
-
-    // Close the dialog
-    setIsExportDialogOpen(false);
-  };
-
-  // Dashboard overview section
   const renderDashboardOverview = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -566,7 +542,7 @@ const StudentLeaderDashboard = () => {
               </SelectContent>
             </Select>
 
-            <Select defaultValue="upcoming">
+            <Select value={selectedEventStatus} onValueChange={setSelectedEventStatus}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -976,7 +952,11 @@ const StudentLeaderDashboard = () => {
             <Button variant="outline" onClick={() => handleCloseDialog()}>
               Close
             </Button>
-            <Button>
+            <Button
+              onClick={() => {
+                setIsExportDialogOpen(true);
+              }}
+            >
               <Download className="h-4 w-4 mr-2" />
               Export List
             </Button>
@@ -984,35 +964,13 @@ const StudentLeaderDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Export data dialog */}
-      <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Export Event Data</DialogTitle>
-            <DialogDescription>Choose a format to export your event data</DialogDescription>
-          </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-4 py-4">
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center"
-              onClick={() => handleExportData("csv")}
-            >
-              <Download className="h-8 w-8 mb-2" />
-              CSV Format
-            </Button>
-
-            <Button
-              variant="outline"
-              className="h-24 flex flex-col items-center justify-center"
-              onClick={() => handleExportData("pdf")}
-            >
-              <Download className="h-8 w-8 mb-2" />
-              PDF Format
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {isExportDialogOpen && (
+        <ExportDialog
+          isOpen={isExportDialogOpen}
+          onClose={() => setIsExportDialogOpen(false)}
+          events = {allEvents}
+        />
+      )}
 
       <Footer />
     </div>
