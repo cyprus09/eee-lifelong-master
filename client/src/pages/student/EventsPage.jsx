@@ -11,8 +11,6 @@ import Footer from "../../components/common/Footer";
 import AddEventForm from "../leader/AddEventForm";
 import { Plus } from "lucide-react";
 import RegisterDialog from "../../components/common/RegisterDialog";
-import CancelDialog from "../../components/common/CancelDialog";
-import RoomManagementDialog from "../leader/RoomManagementDialog";
 import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
 
@@ -22,9 +20,6 @@ const EventsPage = () => {
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
-  const [selectedRoom, setSelectedRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
@@ -123,26 +118,6 @@ const EventsPage = () => {
     });
   };
 
-  const handleRoomSelection = room => {
-    setSelectedRoom(room);
-
-    setIsRoomDialogOpen(false);
-
-    if (isAddEventOpen) {
-      setEventFormData(prev => ({
-        ...prev,
-        venue: room.name,
-      }));
-    } else {
-      setIsAddEventOpen(true);
-    }
-
-    toast({
-      title: "Room Selected",
-      description: `Selected ${room.name} (Capacity: ${room.capacity})`,
-    });
-  };
-
   // Handle event registration
   const handleRegister = async eventId => {
     try {
@@ -173,38 +148,6 @@ const EventsPage = () => {
       toast({
         title: "Error",
         description: error.message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleCancelEvent = async eventId => {
-    try {
-      const session = await supabase.auth.getSession();
-      const response = await fetch(`http://localhost:8080/api/events/${eventId}/cancel`, {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${session.data.session.access_token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to cancel event");
-      }
-
-      toast({
-        title: "Success",
-        description: "Event has been cancelled successfully",
-      });
-
-      await fetchAllEvents();
-      setIsCancelDialogOpen(false);
-    } catch (error) {
-      console.error("Error cancelling event:", error);
-      toast({
-        title: "Error",
-        description: "Failed to cancel event. Please try again.",
         variant: "destructive",
       });
     }
@@ -288,7 +231,6 @@ const EventsPage = () => {
     const eventDate = event.event_date ? new Date(event.event_date) : new Date();
     const isRegisteredTab = activeTab === "registered";
     const showRegisterButton = event.status === "upcoming" && !isRegisteredTab;
-    const showCancelButton = isStudentLeader() && event.status === "upcoming";
 
     return (
       <Card key={event.id} className="hover:shadow-lg transition-shadow">
@@ -340,17 +282,6 @@ const EventsPage = () => {
                   {event.current_attendees >= event.max_attendees ? "Event Full" : "Register Now"}
                 </Button>
               )}
-              {showCancelButton && (
-                <Button
-                  variant="destructive"
-                  onClick={() => {
-                    setSelectedEvent(event);
-                    setIsCancelDialogOpen(true);
-                  }}
-                >
-                  Cancel Event
-                </Button>
-              )}
             </div>
           </div>
         </CardContent>
@@ -378,17 +309,6 @@ const EventsPage = () => {
                 />
               </CardContent>
             </Card>
-
-            {isStudentLeader() && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Room Availability</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Button onClick={() => setIsRoomDialogOpen(true)}>Select Room</Button>
-                </CardContent>
-              </Card>
-            )}
 
             <Card>
               <CardHeader>
@@ -483,20 +403,6 @@ const EventsPage = () => {
         onClose={() => setIsRegisterDialogOpen(false)}
         onConfirm={() => handleRegister(selectedEvent?.id)}
         event={selectedEvent}
-      />
-
-      <CancelDialog
-        isOpen={isCancelDialogOpen}
-        onClose={() => setIsCancelDialogOpen(false)}
-        onConfirm={() => handleCancelEvent(selectedEvent?.id)}
-        event={selectedEvent}
-      />
-
-      <RoomManagementDialog
-        isOpen={isRoomDialogOpen}
-        onClose={() => setIsRoomDialogOpen(false)}
-        onRoomSelect={handleRoomSelection}
-        selectedDate={selectedDate}
       />
       <Footer />
     </div>

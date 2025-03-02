@@ -15,7 +15,7 @@ const RoomManagementDialog = ({ isOpen, onClose, onRoomSelect, selectedDate = ne
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const fetchRoomAvailability = async () => {
+  const fetchRooms = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -26,7 +26,8 @@ const RoomManagementDialog = ({ isOpen, onClose, onRoomSelect, selectedDate = ne
       }
 
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
-      const response = await fetch(`http://localhost:8080/api/rooms/availability?date=${formattedDate}`, {
+
+      const response = await fetch(`http://localhost:8080/api/rooms/available?date=${formattedDate}`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
         },
@@ -34,13 +35,14 @@ const RoomManagementDialog = ({ isOpen, onClose, onRoomSelect, selectedDate = ne
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to fetch room availability");
+        throw new Error(errorData.error || "Failed to fetch available rooms");
       }
 
       const data = await response.json();
+      console.log("Available rooms:", data); // Debug log
       setRooms(data);
     } catch (error) {
-      console.error("Error fetching room availability:", error);
+      console.error("Error fetching available rooms:", error);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -49,7 +51,7 @@ const RoomManagementDialog = ({ isOpen, onClose, onRoomSelect, selectedDate = ne
 
   useEffect(() => {
     if (isOpen) {
-      fetchRoomAvailability();
+      fetchRooms();
     }
   }, [isOpen, selectedDate, retryCount]);
 
@@ -71,7 +73,7 @@ const RoomManagementDialog = ({ isOpen, onClose, onRoomSelect, selectedDate = ne
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Room Availability</DialogTitle>
+          <DialogTitle>Available Rooms</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -97,42 +99,42 @@ const RoomManagementDialog = ({ isOpen, onClose, onRoomSelect, selectedDate = ne
           ) : (
             !error && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {rooms.map(({ room, available, events }) => (
-                  <Card
-                    key={room.id}
-                    className={`hover:shadow-md transition-shadow ${available ? "border-green-200" : "border-red-200"}`}
-                  >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <div>
-                        <h3 className="font-semibold">{room.name}</h3>
-                        <Badge className={getRoomTypeColor(room.room_type)}>{room.room_type.replace("_", " ")}</Badge>
-                      </div>
-                      <Button onClick={() => onRoomSelect(room)} disabled={!available}>
-                        {available ? "Select" : "Booked"}
-                      </Button>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <MapPin className="h-4 w-4" />
-                          <span>
-                            {room.building}, Floor {room.floor}
-                          </span>
+                {rooms.length === 0 ? (
+                  <div className="col-span-2 text-center py-8 text-gray-500">
+                    No available rooms found for this date. Try another date.
+                  </div>
+                ) : (
+                  rooms.map(room => (
+                    <Card
+                      key={room.id || `room-${Math.random()}`}
+                      className="hover:shadow-md transition-shadow border-green-200"
+                    >
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <div>
+                          <h3 className="font-semibold">{room.name || "Unnamed Room"}</h3>
+                          <Badge className={getRoomTypeColor(room.room_type || "unknown")}>
+                            {(room.room_type || "unknown").replace("_", " ")}
+                          </Badge>
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Clock className="h-4 w-4" />
-                          <span>Capacity: {room.capacity} people</span>
+                        <Button onClick={() => onRoomSelect(room)}>Select</Button>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <MapPin className="h-4 w-4" />
+                            <span>
+                              {room.building || "Unknown"}, Floor {room.floor || "?"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Clock className="h-4 w-4" />
+                            <span>Capacity: {room.capacity || "?"} people</span>
+                          </div>
                         </div>
-                        {!available &&
-                          events.map(event => (
-                            <div key={event.id} className="text-sm text-red-500">
-                              Booked: {format(new Date(event.event_date), "h:mm a")} - {event.title}
-                            </div>
-                          ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             )
           )}

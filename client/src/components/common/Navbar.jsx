@@ -4,36 +4,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, Home } from "lucide-react";
+import { Menu, Home, Calendar, Users, LayoutDashboard } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { nanoid } from "nanoid";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
 
-const landings = [
-  {
-    id: nanoid(),
-    title: "Landing 01",
-    route: "/project-management",
-  },
-  {
-    id: nanoid(),
-    title: "Landing 02",
-    route: "/crm-landing",
-  },
-  {
-    id: nanoid(),
-    title: "Landing 03",
-    route: "/ai-content-landing",
-  },
-];
-
 const Navbar = () => {
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const location = useLocation();
+  const { signOut, user, userRole, isStudentLeader } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -61,26 +43,63 @@ const Navbar = () => {
     }
   };
 
+  const isActive = path => {
+    if (path === "/") {
+      return location.pathname === "/";
+    }
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <Card className="container sticky top-4 bg-card py-3 px-4 border-0 flex flex-col rounded-2xl my-auto mx-auto z-10">
       <div className="flex items-center justify-between gap-6">
-        <Home onClick={() => navigate("/home")} className="text-primary cursor-pointer" size={24} />
+        <div className="flex items-center gap-2">
+          <Home onClick={() => navigate("/home")} className="text-primary cursor-pointer" size={24} />
+          <span className="font-semibold text-primary hidden sm:inline-block">Lifelong@EEE </span>
+        </div>
+
         <ul className="hidden md:flex gap-10 text-card-foreground">
-          <li className="text-primary font-medium">
+          <li className={isActive("/") ? "text-primary font-medium" : ""}>
             <Link to="/">Home</Link>
           </li>
-          <li>
+          <li className={isActive("#faqs") ? "text-primary font-medium" : ""}>
             <Link to="#faqs">FAQs</Link>
           </li>
-          <li>
-            <Link to="/events">Events</Link>
+          <li className={isActive("/events") ? "text-primary font-medium" : ""}>
+            <Link to="/events" className="flex items-center gap-1">
+              <Calendar className="h-4 w-4" />
+              Events
+            </Link>
           </li>
-          <li>
-            <Link to="/admin">Admin</Link>
-          </li>
+
+          {isStudentLeader() && (
+            <li className={isActive("/leader/dashboard") ? "text-primary font-medium" : ""}>
+              <Link to="/leader/dashboard" className="flex items-center gap-1">
+                <LayoutDashboard className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </li>
+          )}
+
+          {userRole === "admin" && (
+            <li className={isActive("/admin") ? "text-primary font-medium" : ""}>
+              <Link to="/admin">Admin</Link>
+            </li>
+          )}
         </ul>
 
         <div className="flex items-center">
+          {user && (
+            <span className="hidden md:flex items-center gap-2 mr-4">
+              <div className="h-6 w-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold">
+                {user.email ? user.email.charAt(0).toUpperCase() : "U"}
+              </div>
+              <span className="text-sm hidden lg:inline-block">
+                {isStudentLeader() ? "Leader" : userRole === "admin" ? "Admin" : "Student"}
+              </span>
+            </span>
+          )}
+
           <Button variant="secondary" className="hidden md:block px-2" onClick={handleLogout} disabled={isLoggingOut}>
             {isLoggingOut ? "Logging out..." : "Logout"}
           </Button>
@@ -95,7 +114,8 @@ const Navbar = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem>
-                  <Link to="/" className="w-full">
+                  <Link to="/" className="w-full flex items-center gap-2">
+                    <Home className="h-4 w-4" />
                     Home
                   </Link>
                 </DropdownMenuItem>
@@ -105,26 +125,51 @@ const Navbar = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Link to="/events" className="w-full">
+                  <Link to="/events" className="w-full flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
                     Events
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Link to="/admin" className="w-full">
-                    Admin
-                  </Link>
-                </DropdownMenuItem>
-                {user ? (
+
+                {/* Conditional mobile navigation based on user role */}
+                {isStudentLeader() && (
                   <DropdownMenuItem>
-                    <Button
-                      variant="secondary"
-                      className="w-full text-sm"
-                      onClick={handleLogout}
-                      disabled={isLoggingOut}
-                    >
-                      {isLoggingOut ? "Logging out..." : "Logout"}
-                    </Button>
+                    <Link to="/leader/dashboard" className="w-full flex items-center gap-2">
+                      <LayoutDashboard className="h-4 w-4" />
+                      Leader Dashboard
+                    </Link>
                   </DropdownMenuItem>
+                )}
+
+                {userRole === "admin" && (
+                  <DropdownMenuItem>
+                    <Link to="/admin" className="w-full">
+                      Admin
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+
+                {user ? (
+                  <>
+                    <DropdownMenuItem>
+                      <div className="w-full flex items-center justify-between">
+                        <span className="text-sm">{user.email}</span>
+                        <span className="text-xs bg-primary text-white px-2 py-1 rounded">
+                          {isStudentLeader() ? "Leader" : userRole === "admin" ? "Admin" : "Student"}
+                        </span>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Button
+                        variant="secondary"
+                        className="w-full text-sm"
+                        onClick={handleLogout}
+                        disabled={isLoggingOut}
+                      >
+                        {isLoggingOut ? "Logging out..." : "Logout"}
+                      </Button>
+                    </DropdownMenuItem>
+                  </>
                 ) : (
                   <>
                     <DropdownMenuItem>
