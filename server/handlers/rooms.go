@@ -2,18 +2,21 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"lifelong-eee-project/models"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/supabase-community/postgrest-go"
 )
 
-func (h *EventHandler) GetRoomAvailability(c *gin.Context) {
-	log.Printf("GetRoomAvailability called with token: %v", c.GetHeader("Authorization") != "")
+func (h *EventHandler) GetAvailableRooms(c *gin.Context) {
+	log.Printf("GetAvailableRooms called with token: %v", c.GetHeader("Authorization") != "")
 
+	// Get query parameters
 	date := c.Query("date")
 	if date == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Date parameter is required"})
@@ -27,8 +30,35 @@ func (h *EventHandler) GetRoomAvailability(c *gin.Context) {
 		return
 	}
 
-	log.Printf("Fetching rooms from Supabase...")
-	roomsResult, count, err := h.client.From("rooms").Select("*", "", false).Execute()
+	// Parse capacity filter (optional)
+	minCapacity := 0
+	if capacityStr := c.Query("min_capacity"); capacityStr != "" {
+		minCapacity, err = strconv.Atoi(capacityStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid minimum capacity"})
+			return
+		}
+	}
+
+	// Get room type filter (optional)
+	roomType := c.Query("room_type")
+
+	log.Printf("Fetching rooms with filters: date=%s, minCapacity=%d, roomType=%s",
+		date, minCapacity, roomType)
+
+	// Fetch all rooms
+	roomsQuery := h.client.From("rooms").Select("*", "", false)
+
+	if minCapacity > 0 {
+		roomsQuery = roomsQuery.Filter("capacity", "gte", fmt.Sprint(minCapacity))
+	}
+
+	// Apply room type filter if specified
+	if roomType != "" {
+		roomsQuery = roomsQuery.Filter("room_type", "eq", roomType)
+	}
+
+	roomsResult, count, err := roomsQuery.Execute()
 	if err != nil {
 		log.Printf("Error fetching rooms: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms"})
@@ -71,26 +101,44 @@ func (h *EventHandler) GetRoomAvailability(c *gin.Context) {
 		return
 	}
 
-	// Build room availability response
-	availability := make([]models.RoomAvailability, len(rooms))
-	for i, room := range rooms {
-		roomEvents := make([]models.Event, 0)
-		isAvailable := true
+	// Create a map of booked rooms
+	bookedRooms := make(map[string]bool)
+	for _, event := range events {
+		bookedRooms[event.Venue] = true
+	}
 
-		for _, event := range events {
-			if event.Venue == room.Name {
-				roomEvents = append(roomEvents, event)
-				isAvailable = false
-			}
-		}
-
-		availability[i] = models.RoomAvailability{
-			Room:      room,
-			Available: isAvailable,
-			Events:    roomEvents,
+	// Filter only available rooms
+	var availableRooms []models.Room
+	for _, room := range rooms {
+		if !bookedRooms[room.Name] {
+			availableRooms = append(availableRooms, room)
 		}
 	}
 
-	log.Printf("Successfully processed %d rooms and %d events", len(rooms), len(events))
-	c.JSON(http.StatusOK, availability)
+	log.Printf("Found %d available rooms out of %d total rooms", len(availableRooms), len(rooms))
+	log.Printf("Available rooms: %+v", rooms)
+	c.JSON(http.StatusOK, availableRooms)
+}
+
+// GetRooms returns all rooms without availability information
+func (h *EventHandler) GetRooms(c *gin.Context) {
+	log.Printf("GetRooms called with token: %v", c.GetHeader("Authorization") != "")
+
+	roomsResult, count, err := h.client.From("rooms").Select("*", "", false).Execute()
+	if err != nil {
+		log.Printf("Error fetching rooms: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch rooms"})
+		return
+	}
+	log.Printf("Fetched %d rooms", count)
+
+	var rooms []models.Room
+	if err := json.Unmarshal(roomsResult, &rooms); err != nil {
+		log.Printf("Error unmarshaling rooms: %v", err)
+		log.Printf("JSON being unmarshaled: %s", string(roomsResult))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process rooms data"})
+		return
+	}
+
+	c.JSON(http.StatusOK, rooms)
 }

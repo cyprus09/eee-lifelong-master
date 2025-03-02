@@ -20,7 +20,6 @@ func init() {
 }
 
 func main() {
-
 	requiredEnvVars := []string{
 		"SUPABASE_URL",
 		"SUPABASE_SERVICE_ROLE_KEY",
@@ -111,13 +110,24 @@ func main() {
 		protected.POST("/events/:id/register", eventHandler.RegisterForEvent)
 		protected.GET("/events/registered/:userId", eventHandler.GetRegisteredEvents)
 
+		// Room routes available to all users
+		protected.GET("/rooms/availability", eventHandler.GetAvailableRooms)
+
 		// Student leader routes
 		studentLeader := protected.Group("/")
 		studentLeader.Use(middleware.RequireRole("student_leader"))
 		{
+			// Event management endpoints
 			studentLeader.POST("/events", eventHandler.CreateEvent)
 			studentLeader.PUT("/events/:id/cancel", eventHandler.CancelEvent)
-			router.GET("/api/rooms/availability", middleware.AuthMiddleware(db), eventHandler.GetRoomAvailability)
+
+			// New endpoints for student leader dashboard
+			studentLeader.GET("/events/:id/attendees", eventHandler.GetEventAttendees)
+			studentLeader.GET("/events/stats", eventHandler.GetEventStats)
+
+			// Room management
+			studentLeader.GET("/rooms", eventHandler.GetRooms)
+			studentLeader.GET("/rooms/available", eventHandler.GetAvailableRooms)
 		}
 	}
 
