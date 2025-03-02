@@ -11,14 +11,16 @@ import Footer from "../../components/common/Footer";
 import AddEventForm from "../leader/AddEventForm";
 import { Plus } from "lucide-react";
 import RegisterDialog from "../../components/common/RegisterDialog";
+import EventDetailsDialog from "../../components/common/EventDialog";
 import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
 
 const EventsPage = () => {
-  const { user, userRole, isStudentLeader } = useAuth();
-  const [allEvents, setAllEvents] = useState([]); // Store all events
+  const { isStudentLeader } = useAuth();
+  const [allEvents, setAllEvents] = useState([]);
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [isEventDetailsOpen, setIsEventDetailsOpen] = useState(false);
   const [isRegisterDialogOpen, setIsRegisterDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -54,7 +56,7 @@ const EventsPage = () => {
       }
 
       const data = await response.json();
-      console.log("Parsed Data:", data);
+      // console.log("Parsed Data:", data);
       setAllEvents(data || []);
     } catch (error) {
       console.error("Error fetching events:", error);
@@ -227,13 +229,20 @@ const EventsPage = () => {
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
-  const renderEventCard = event => {
+  const renderEventCard = (event, setSelectedEvent, setIsEventDetailsOpen) => {
     const eventDate = event.event_date ? new Date(event.event_date) : new Date();
     const isRegisteredTab = activeTab === "registered";
     const showRegisterButton = event.status === "upcoming" && !isRegisteredTab;
 
     return (
-      <Card key={event.id} className="hover:shadow-lg transition-shadow">
+      <Card
+        key={event.id}
+        className="hover:shadow-lg transition-shadow cursos-pointer"
+        onClick={() => {
+          setSelectedEvent(event);
+          setIsEventDetailsOpen(true);
+        }}
+      >
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
@@ -274,7 +283,8 @@ const EventsPage = () => {
               {showRegisterButton && (
                 <Button
                   disabled={event.current_attendees >= event.max_attendees}
-                  onClick={() => {
+                  onClick={e => {
+                    e.stopPropogation();
                     setSelectedEvent(event);
                     setIsRegisterDialogOpen(true);
                   }}
@@ -386,7 +396,7 @@ const EventsPage = () => {
                 ) : getFilteredEvents().length === 0 ? (
                   <div className="text-center text-gray-500 py-4">No events found</div>
                 ) : (
-                  getFilteredEvents().map(event => renderEventCard(event))
+                  getFilteredEvents().map(event => renderEventCard(event, setSelectedEvent, setIsEventDetailsOpen))
                 )}
               </TabsContent>
             </Tabs>
@@ -397,6 +407,13 @@ const EventsPage = () => {
       {isStudentLeader() && (
         <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />
       )}
+
+      <EventDetailsDialog
+        isOpen={isEventDetailsOpen}
+        setIsOpen={setIsEventDetailsOpen}
+        event={selectedEvent}
+        setIsRegisterDialogOpen={setIsRegisterDialogOpen}
+      />
 
       <RegisterDialog
         isOpen={isRegisterDialogOpen}

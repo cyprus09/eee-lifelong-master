@@ -41,11 +41,6 @@ const CarouselSlides = () => {
       description: "Learn from industry experts in your field",
       image: knowledgeSharing,
     },
-    // {
-    //   title: "Community Projects",
-    //   description: "Collaborate on innovative engineering projects",
-    //   image: "/api/placeholder/1200/600",
-    // },
   ];
 
   useEffect(() => {
