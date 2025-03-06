@@ -1,5 +1,4 @@
-import React from "react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +38,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+} from "recharts";
+import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from "date-fns";
 
 const StudentLeaderDashboard = () => {
   const { user, isStudentLeader } = useAuth();
@@ -427,6 +442,78 @@ const StudentLeaderDashboard = () => {
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
+  // Process event type data for pie chart
+  const getEventTypeData = () => {
+    // Count events by type
+    const typeCount = allEvents.reduce((acc, event) => {
+      acc[event.event_type] = (acc[event.event_type] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Convert to array format for chart
+    return Object.entries(typeCount).map(([type, count]) => ({
+      name: type,
+      value: count,
+    }));
+  };
+
+  // Process data for registration trends
+  const getRegistrationTrendData = () => {
+    if (allEvents.length === 0) return [];
+
+    // Get date range - last 6 months
+    const now = new Date();
+    const sixMonthsAgo = subMonths(now, 5); // Get 6 months including current
+
+    // Create an array of months
+    const monthRange = eachMonthOfInterval({
+      start: startOfMonth(sixMonthsAgo),
+      end: endOfMonth(now),
+    });
+
+    // Initialize data with all months
+    const monthlyData = monthRange.map(date => ({
+      month: format(date, "MMM yyyy"),
+      registrations: 0,
+      events: 0,
+      sortDate: date, // Used for sorting
+    }));
+
+    // Count registrations per month
+    allEvents.forEach(event => {
+      const eventDate = parseISO(event.event_date);
+      const monthKey = format(eventDate, "MMM yyyy");
+
+      // Find the matching month in our data array
+      const monthData = monthlyData.find(item => item.month === monthKey);
+      if (monthData) {
+        monthData.registrations += event.current_attendees || 0;
+        monthData.events += 1;
+      }
+    });
+
+    // Sort by date and return without the sort field
+    return monthlyData
+      .sort((a, b) => a.sortDate - b.sortDate)
+      .map(({ month, registrations, events }) => ({ month, registrations, events }));
+  };
+
+  // Process data for event performance chart
+  const getEventPerformanceData = () => {
+    return allEvents
+      .filter(e => e.max_attendees > 0)
+      .map(event => ({
+        name: event.title,
+        fillRate: Math.round((event.current_attendees / event.max_attendees) * 100),
+        type: event.event_type,
+        date: format(new Date(event.event_date), "MMM d, yyyy"),
+        registrations: event.current_attendees,
+        capacity: event.max_attendees,
+      }))
+      .sort((a, b) => b.fillRate - a.fillRate)
+      .slice(0, 5);
+  };
+
   const handleViewAttendees = event => {
     setSelectedEvent(event);
     fetchEventAttendees(event.id);
@@ -740,56 +827,149 @@ const StudentLeaderDashboard = () => {
     );
   };
 
-  // Analytics section
   const renderAnalytics = () => {
+    const eventTypeData = getEventTypeData();
+    const registrationTrendData = getRegistrationTrendData();
+    const eventPerformanceData = getEventPerformanceData();
+
+    // Colors for pie chart
+    const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
+
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <h2 className="text-xl font-semibold">Event Analytics</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Events by Type Chart */}
           <Card>
             <CardHeader>
               <CardTitle>Events by Type</CardTitle>
+              <CardDescription>Distribution of events across different categories</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <BarChart2 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>Event type distribution chart would appear here</p>
-                  <p className="text-sm">Most popular: {eventStats.mostPopularType || "N/A"}</p>
+              {eventTypeData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={eventTypeData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {eventTypeData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip
+                      formatter={(value, name, props) => [`${value} events`, name]}
+                      contentStyle={{ backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "4px" }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p>No event data available</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
 
+          {/* Registration Trends Chart */}
           <Card>
             <CardHeader>
               <CardTitle>Registration Trends</CardTitle>
+              <CardDescription>Monthly registrations over the past 6 months</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
-              <div className="flex h-full items-center justify-center">
-                <div className="text-center text-gray-500">
-                  <BarChart2 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>Registration trends chart would appear here</p>
-                  <p className="text-sm">Total: {eventStats.totalRegistrations}</p>
+              {registrationTrendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={registrationTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <RechartsTooltip
+                      contentStyle={{ backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "4px" }}
+                      formatter={(value, name) => [value, name === "registrations" ? "Registrations" : "Events"]}
+                    />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="registrations"
+                      stroke="#0088FE"
+                      activeDot={{ r: 8 }}
+                      name="Registrations"
+                    />
+                    <Line type="monotone" dataKey="events" stroke="#00C49F" name="Events" />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p>No registration data available</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
 
+        {/* Event Performance Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Event Performance Overview</CardTitle>
             <CardDescription>Registration rates compared to maximum capacity</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="h-80 mb-6">
+              {eventPerformanceData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={eventPerformanceData}
+                    layout="vertical"
+                    margin={{ top: 20, right: 30, left: 150, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" domain={[0, 100]} />
+                    <YAxis type="category" dataKey="name" width={150} tick={{ fontSize: 12 }} />
+                    <RechartsTooltip
+                      formatter={value => [`${value}%`, "Fill Rate"]}
+                      contentStyle={{ backgroundColor: "rgba(255, 255, 255, 0.9)", borderRadius: "4px" }}
+                      labelFormatter={label => `${label}`}
+                    />
+                    <Legend />
+                    <Bar dataKey="fillRate" name="Fill Rate (%)" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                      {eventPerformanceData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.fillRate > 80 ? "#4ade80" : entry.fillRate > 50 ? "#60a5fa" : "#fbbf24"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className="text-center text-gray-500">
+                    <p>No performance data available</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Event</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
                   <TableHead>Registrations</TableHead>
                   <TableHead>Fill Rate</TableHead>
                 </TableRow>
@@ -806,21 +986,27 @@ const StudentLeaderDashboard = () => {
                         <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
                       </TableCell>
                       <TableCell>{formatEventDate(event.event_date)}</TableCell>
+                      <TableCell>{formatEventTime(event.event_date)}</TableCell>
                       <TableCell>
                         {event.current_attendees}/{event.max_attendees}
                       </TableCell>
                       <TableCell>
-                        <div className="w-full bg-gray-200 rounded-full h-2.5">
-                          <div
-                            className={`h-2.5 rounded-full ${
-                              event.current_attendees / event.max_attendees > 0.8
-                                ? "bg-green-600"
-                                : event.current_attendees / event.max_attendees > 0.5
-                                ? "bg-blue-600"
-                                : "bg-amber-500"
-                            }`}
-                            style={{ width: `${(event.current_attendees / event.max_attendees) * 100}%` }}
-                          ></div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                              className={`h-2.5 rounded-full ${
+                                event.current_attendees / event.max_attendees > 0.8
+                                  ? "bg-green-600"
+                                  : event.current_attendees / event.max_attendees > 0.5
+                                  ? "bg-blue-600"
+                                  : "bg-amber-500"
+                              }`}
+                              style={{ width: `${(event.current_attendees / event.max_attendees) * 100}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs w-10 text-right">
+                            {Math.round((event.current_attendees / event.max_attendees) * 100)}%
+                          </span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -829,6 +1015,45 @@ const StudentLeaderDashboard = () => {
             </Table>
           </CardContent>
         </Card>
+
+        {/* Summary Statistics Card */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500">Total Events</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{eventStats.totalEvents}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500">Upcoming Events</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{eventStats.upcomingEvents}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500">Total Registrations</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{eventStats.totalRegistrations}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-gray-500">Most Popular Type</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{eventStats.mostPopularType || "N/A"}</div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   };
