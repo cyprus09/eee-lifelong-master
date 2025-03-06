@@ -24,11 +24,11 @@ func (h *EventHandler) GetAvailableRooms(c *gin.Context) {
 	}
 
 	// Parse the date
-	requestedDate, err := time.Parse("2006-01-02", date)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
-		return
-	}
+	// requestedDate, err := time.Parse("2006-01-02", date)
+	// if err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
+	// 	return
+	// }
 
 	// Get time parameters (optional, default to full day)
 	startTime := c.Query("start_time")
@@ -44,6 +44,7 @@ func (h *EventHandler) GetAvailableRooms(c *gin.Context) {
 
 	// Parse capacity filter (optional)
 	minCapacity := 0
+	var err error
 	if capacityStr := c.Query("min_capacity"); capacityStr != "" {
 		minCapacity, err = strconv.Atoi(capacityStr)
 		if err != nil {
@@ -98,7 +99,6 @@ func (h *EventHandler) GetAvailableRooms(c *gin.Context) {
 	// 1. Events starting on our date
 	// 2. Events already in progress during our time window
 	eventsQuery = eventsQuery.Or(fmt.Sprintf("event_date.gte.%s,event_date.lt.%s",
-	eventsQuery = eventsQuery.Or(fmt.Sprintf("event_date.gte.%s,event_date.lt.%s",
 		startDateTime, endDateTime), "")
 	eventsResult, _, err := eventsQuery.Execute()
 	if err != nil {
@@ -119,7 +119,7 @@ func (h *EventHandler) GetAvailableRooms(c *gin.Context) {
 	bookedRooms := make(map[string]bool)
 	for _, event := range events {
 		// Check if this event overlaps with the requested time slot
-		eventTime, _ := time.Parse(time.RFC3339, event.EventDate)
+		eventTime := event.EventDate
 
 		// We consider an event to be 2 hours long by default if duration is not specified
 		// This can be modified to use the actual event duration once that field is added
