@@ -6,16 +6,7 @@ import (
 	"lifelong-eee-project/models"
 	"log"
 	"net/http"
-	"time"
 )
-
-type AttendeesResponse struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	Email            string    `json:"email"`
-	UserID           string    `json:"user_id"`
-	RegistrationDate time.Time `json:"registration_date"`
-}
 
 func (h *EventHandler) GetEventAttendees(c *gin.Context) {
 	eventID := c.Param("id")
@@ -76,9 +67,9 @@ func (h *EventHandler) GetEventAttendees(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var attendees []AttendeesResponse
+	var attendees []models.AttendeesResponse
 	for rows.Next() {
-		var attendee AttendeesResponse
+		var attendee models.AttendeesResponse
 		var name, email *string
 
 		if err := rows.Scan(

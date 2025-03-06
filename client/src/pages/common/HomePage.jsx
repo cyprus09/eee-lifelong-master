@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import Navbar from "@/components/common/Navbar";
 import Footer from "../../components/common/Footer";
-import AddEventForm from "../leader/AddEventForm";
+import AddEventForm from "../../components/leader/AddEventForm";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -14,6 +14,7 @@ import { Separator } from "@/components/ui/separator";
 import CarouselSlides from "@/components/common/CarouselSlides";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
+import { toast } from "@/hooks/use-toast";
 
 const HomePage = () => {
   const { user, userRole, hasRole, isStudentLeader } = useAuth();
@@ -40,42 +41,42 @@ const HomePage = () => {
     }
   }, [user, userRole]);
 
-    // Handle event creation
-    const handleSubmit = async eventData => {
-      try {
-        const session = await supabase.auth.getSession();
-        const response = await fetch("http://localhost:8080/api/events", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.data.session.access_token}`,
-          },
-          body: JSON.stringify({
-            ...eventData,
-            status: "upcoming",
-            venue: selectedRoom?.name || eventData.venue,
-          }),
-        });
-  
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to create event");
-        }
-  
-        setIsAddEventOpen(false);
-  
-        toast({
-          title: "Success!",
-          description: "Event created successfully.",
-        });
-      } catch (error) {
-        console.error("Error creating event:", error);
-        toast({
-          title: "Event creation failed",
-          description: "There was a problem creating the event. Please try again.",
-        });
+  // Handle event creation
+  const handleSubmit = async eventData => {
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch("http://localhost:8080/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          ...eventData,
+          status: "upcoming",
+          venue: selectedRoom?.name || eventData.venue,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create event");
       }
-    };
+
+      setIsAddEventOpen(false);
+
+      toast({
+        title: "Success!",
+        description: "Event created successfully.",
+      });
+    } catch (error) {
+      console.error("Error creating event:", error);
+      toast({
+        title: "Event creation failed",
+        description: "There was a problem creating the event. Please try again.",
+      });
+    }
+  };
 
   const fetchUpcomingEvents = async () => {
     setIsLoading(true);

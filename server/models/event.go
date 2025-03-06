@@ -28,3 +28,11 @@ type RegisteredEvent struct {
 	Event            Event     `json:"event"`
 	RegistrationDate time.Time `json:"registration_date"`
 }
+
+type AttendeesResponse struct {
+	ID               string    `json:"id"`
+	Name             string    `json:"name"`
+	Email            string    `json:"email"`
+	UserID           string    `json:"user_id"`
+	RegistrationDate time.Time `json:"registration_date"`
+}

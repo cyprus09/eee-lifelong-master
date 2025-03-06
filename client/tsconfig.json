@@ -28,8 +28,9 @@
     "src/components/common/Navbar.jsx",
     "src/components/common/Footer.jsx",
     "src/components/common/CarouselSlides.jsx",
-    "src/hooks/use-toast.tsx"
-, "src/lib/supabaseClient.jsx"  ],
+    "src/hooks/use-toast.tsx",
+    "src/lib/supabaseClient.jsx"
+  ],
   "references": [
     {
       "path": "./tsconfig.app.json"

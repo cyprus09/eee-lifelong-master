@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import loginImage from "../../assets/loginImage.png";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/hooks/use-toast";
-
+import { LogIn } from "lucide-react";
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
     email: "",
@@ -51,7 +51,7 @@ const RegisterPage = () => {
       setError("");
       setLoading(true);
 
-      const { data, error, message } = await signUp({
+      const { error } = await signUp({
         email: formData.email,
         password: formData.password,
         options: {
@@ -123,7 +123,7 @@ const RegisterPage = () => {
 
         <Card className="w-full max-w-md mx-auto">
           <CardHeader>
-            <CardTitle>Create Account</CardTitle>
+            <CardTitle>Create Account </CardTitle>
             <CardDescription>Sign up to join your batch community</CardDescription>
           </CardHeader>
           <CardContent>
@@ -190,6 +190,7 @@ const RegisterPage = () => {
 
               <Button className="w-full" type="submit" disabled={loading}>
                 {loading ? "Creating Account..." : "Create Account"}
+                <LogIn />
               </Button>
             </form>
 

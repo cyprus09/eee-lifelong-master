@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as CalendarIcon, MapPin, Clock, Users } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
-import AddEventForm from "../leader/AddEventForm";
+import AddEventForm from "../../components/leader/AddEventForm";
 import { Plus } from "lucide-react";
 import RegisterDialog from "../../components/common/RegisterDialog";
 import EventDetailsDialog from "../../components/common/EventDialog";
@@ -96,28 +96,33 @@ const EventsPage = () => {
   }, []);
 
   const getFilteredEvents = () => {
+    let filteredEvents = [];
+
     if (activeTab === "registered") {
-      return registeredEvents.filter(event =>
+      filteredEvents = registeredEvents.filter(event =>
         selectedEventType === "all" ? true : event.event_type === selectedEventType
       );
+    } else {
+      const now = new Date();
+      filteredEvents = allEvents.filter(event => {
+        const eventDate = new Date(event.event_date);
+        const matchesEventType = selectedEventType === "all" || event.event_type === selectedEventType;
+
+        switch (activeTab) {
+          case "upcoming":
+            return eventDate > now && event.status === "upcoming" && matchesEventType;
+          case "past":
+            return eventDate < now && event.status === "past" && matchesEventType;
+          case "cancelled":
+            return event.status === "cancelled" && matchesEventType;
+          default:
+            return matchesEventType;
+        }
+      });
     }
 
-    const now = new Date();
-    return allEvents.filter(event => {
-      const eventDate = new Date(event.event_date);
-      const matchesEventType = selectedEventType === "all" || event.event_type === selectedEventType;
-
-      switch (activeTab) {
-        case "upcoming":
-          return eventDate > now && event.status === "upcoming" && matchesEventType;
-        case "past":
-          return eventDate < now && event.status === "past" && matchesEventType;
-        case "cancelled":
-          return event.status === "cancelled" && matchesEventType;
-        default:
-          return matchesEventType;
-      }
-    });
+    // Sort events by date - most recent at the top
+    return filteredEvents.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
   };
 
   // Handle event registration

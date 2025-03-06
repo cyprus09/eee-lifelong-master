@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import loginImage from "../../assets/loginImage.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { LogIn } from "lucide-react";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -119,7 +120,7 @@ const LoginPage = () => {
                   />
                 </div>
                 <Button className="w-full" type="submit" disabled={loading}>
-                  {loading ? "Loading..." : "Log In"}
+                  {loading ? "Loading..." : "Log In"} <LogIn/>
                 </Button>
                 <Button className="w-full bg-white" variant="outline" onClick={() => navigate("/register")}>
                   Register

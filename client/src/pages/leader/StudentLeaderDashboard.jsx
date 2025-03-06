@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import Navbar from "../../components/common/Navbar";
 import Footer from "../../components/common/Footer";
-import AddEventForm from "../leader/AddEventForm";
+import AddEventForm from "../../components/leader/AddEventForm";
+import EditEventForm from "../../components/leader/EditEventForm";
 import RoomManagementDialog from "../leader/RoomManagementDialog";
 import ExportDialog from "../../components/common/ExportDialog";
 import { supabase } from "../../lib/supabaseClient";
@@ -341,9 +342,42 @@ const StudentLeaderDashboard = () => {
     }
   };
 
-  const handleEditEvent = event => {
-    setSelectedEvent(event);
-    setIsEditEventOpen(true);
+  const handleEditEvent = async (eventId, eventData) => {
+    try {
+      // Make sure eventId is a string, not an object
+      const id = typeof eventId === "string" ? eventId : eventId.id;
+
+      const session = await supabase.auth.getSession();
+      const response = await fetch(`http://localhost:8080/api/events/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+        body: JSON.stringify(eventData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update event");
+      }
+
+      // Refresh events after updating
+      await fetchAllEvents();
+      setIsEditEventOpen(false);
+      setSelectedEvent(null);
+
+      toast({
+        title: "Success!",
+        description: "Event updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error updating event:", error);
+      toast({
+        title: "Event update failed",
+        description: "There was a problem updating the event. Please try again.",
+      });
+    }
   };
 
   const formatEventDate = dateString => {
@@ -631,7 +665,12 @@ const StudentLeaderDashboard = () => {
                           </DropdownMenuItem>
                           {event.status === "upcoming" && (
                             <>
-                              <DropdownMenuItem onClick={() => handleEditEvent(event)}>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setSelectedEvent(event);
+                                  setIsEditEventOpen(true);
+                                }}
+                              >
                                 <Edit className="mr-2 h-4 w-4" />
                                 <span>Edit Event</span>
                               </DropdownMenuItem>
@@ -894,9 +933,18 @@ const StudentLeaderDashboard = () => {
         </div>
       </div>
 
-      {/* Add event form dialog */}
       <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />
-
+      {selectedEvent && (
+        <EditEventForm
+          isOpen={isEditEventOpen}
+          onClose={() => {
+            setIsEditEventOpen(false);
+            setSelectedEvent(null);
+          }}
+          onSubmit={handleEditEvent}
+          event={selectedEvent}
+        />
+      )}
       {/* Cancel event confirmation dialog */}
       <CancelDialog
         isOpen={isCancelDialogOpen}

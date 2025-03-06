@@ -119,6 +119,7 @@ func main() {
 		{
 			// Event management endpoints
 			studentLeader.POST("/events", eventHandler.CreateEvent)
+			studentLeader.PUT("/events/:id", eventHandler.EditEvent)
 			studentLeader.PUT("/events/:id/cancel", eventHandler.CancelEvent)
 
 			// New endpoints for student leader dashboard
