@@ -98,10 +98,8 @@ const StudentLeaderDashboard = () => {
       }
 
       const data = await response.json();
-      // console.log("Parsed Data:", data);
       setAllEvents(data || []);
 
-      // Calculate statistics
       const stats = calculateEventStats(data);
       setEventStats(stats);
     } catch (error) {
@@ -128,18 +126,14 @@ const StudentLeaderDashboard = () => {
 
     const now = new Date();
 
-    // Count different event types
     const upcoming = events.filter(e => new Date(e.event_date) > now && e.status === "upcoming").length;
     const past = events.filter(e => new Date(e.event_date) < now && e.status === "past").length;
     const cancelled = events.filter(e => e.status === "cancelled").length;
 
-    // Get total registrations
     const totalRegs = events.reduce((sum, event) => sum + (event.current_attendees || 0), 0);
 
-    // Find most popular event (by attendance)
     const mostPopular = [...events].sort((a, b) => (b.current_attendees || 0) - (a.current_attendees || 0))[0];
 
-    // Calculate most popular event type
     const eventTypeCount = events.reduce((acc, event) => {
       acc[event.event_type] = (acc[event.event_type] || 0) + 1;
       return acc;
@@ -160,7 +154,6 @@ const StudentLeaderDashboard = () => {
     };
   };
 
-  // Fetch attendees for a specific event
   const fetchEventAttendees = async eventId => {
     try {
       const session = await supabase.auth.getSession();
@@ -190,7 +183,6 @@ const StudentLeaderDashboard = () => {
     }
   };
 
-  // Fetch registered events
   const fetchRegisteredEvents = async () => {
     try {
       const session = await supabase.auth.getSession();
@@ -211,14 +203,12 @@ const StudentLeaderDashboard = () => {
     }
   };
 
-  // Fetch all data once on component mount
   useEffect(() => {
     const fetchInitialData = async () => {
       await Promise.all([fetchAllEvents(), fetchRegisteredEvents()]);
     };
     fetchInitialData();
 
-    // Check if the user is a student leader
     if (!isStudentLeader()) {
       window.location.href = "/events";
     }
@@ -254,14 +244,29 @@ const StudentLeaderDashboard = () => {
       setEventFormData(prev => ({
         ...prev,
         venue: room.name,
+        event_date: room.selectedTimeSlot
+          ? new Date(
+              selectedDate.getFullYear(),
+              selectedDate.getMonth(),
+              selectedDate.getDate(),
+              parseInt(room.selectedTimeSlot.startTime.split(":")[0]),
+              parseInt(room.selectedTimeSlot.startTime.split(":")[1])
+            ).toISOString()
+          : prev.event_date,
+        // You could also save the end time if your event model supports it
+        // end_time: room.selectedTimeSlot ? room.selectedTimeSlot.endTime : prev.end_time,
       }));
     } else {
       setIsAddEventOpen(true);
     }
 
+    const timeInfo = room.selectedTimeSlot
+      ? ` (${room.selectedTimeSlot.startTime} - ${room.selectedTimeSlot.endTime})`
+      : "";
+
     toast({
       title: "Room Selected",
-      description: `Selected ${room.name} (Capacity: ${room.capacity})`,
+      description: `Selected ${room.name} (Capacity: ${room.capacity})${timeInfo}`,
     });
   };
 
@@ -346,7 +351,6 @@ const StudentLeaderDashboard = () => {
 
   const handleEditEvent = async (eventId, eventData) => {
     try {
-      // Make sure eventId is a string, not an object
       const id = typeof eventId === "string" ? eventId : eventId.id;
 
       const session = await supabase.auth.getSession();
@@ -1015,17 +1019,17 @@ const StudentLeaderDashboard = () => {
       </Dialog>
 
       <ExportAttendeesDialog
-  isOpen={isExportAttendeesDialogOpen}
-  onClose={() => setIsExportAttendeesDialogOpen(false)}
-  attendees={attendees}
-  eventTitle={selectedEvent?.title}
-/>
+        isOpen={isExportAttendeesDialogOpen}
+        onClose={() => setIsExportAttendeesDialogOpen(false)}
+        attendees={attendees}
+        eventTitle={selectedEvent?.title}
+      />
 
       {isExportEventsDialogOpen && (
         <ExportEventsDialog
           isOpen={isExportEventsDialogOpen}
           onClose={() => setIsExportEventsDialogOpen(false)}
-          events = {allEvents}
+          events={allEvents}
         />
       )}
 

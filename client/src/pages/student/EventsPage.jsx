@@ -173,7 +173,7 @@ const EventsPage = () => {
         body: JSON.stringify({
           ...eventData,
           status: "upcoming",
-          venue: selectedRoom?.name || eventData.venue,
+          venue: eventData.venue,
         }),
       });
 
@@ -211,6 +211,33 @@ const EventsPage = () => {
     });
   };
 
+  // New function to format time only
+  const formatEventTime = dateString => {
+    if (!dateString || dateString === "0001-01-01T00:00:00Z") {
+      return "Time not set";
+    }
+    return new Date(dateString).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Combined function for date and time display
+  // const formatEventDateTime = dateString => {
+  //   if (!dateString || dateString === "0001-01-01T00:00:00Z") {
+  //     return "Date and time not set";
+  //   }
+  //   const date = new Date(dateString);
+  //   return date.toLocaleDateString("en-US", {
+  //     weekday: "long",
+  //     year: "numeric",
+  //     month: "long",
+  //     day: "numeric",
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //   });
+  // };
+
   const handleEventTypeClick = type => {
     setSelectedEventType(type);
   };
@@ -235,14 +262,13 @@ const EventsPage = () => {
   };
 
   const renderEventCard = (event, setSelectedEvent, setIsEventDetailsOpen) => {
-    const eventDate = event.event_date ? new Date(event.event_date) : new Date();
     const isRegisteredTab = activeTab === "registered";
     const showRegisterButton = event.status === "upcoming" && !isRegisteredTab;
 
     return (
       <Card
         key={event.id}
-        className="hover:shadow-lg transition-shadow cursos-pointer"
+        className="hover:shadow-lg transition-shadow cursor-pointer"
         onClick={() => {
           setSelectedEvent(event);
           setIsEventDetailsOpen(true);
@@ -270,7 +296,7 @@ const EventsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-gray-600">
                 <Clock className="h-4 w-4" />
-                <span>{formatEventDate(event.event_date)}</span>
+                <span>{formatEventTime(event.event_date)}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="h-4 w-4" />
@@ -289,7 +315,7 @@ const EventsPage = () => {
                 <Button
                   disabled={event.current_attendees >= event.max_attendees}
                   onClick={e => {
-                    e.stopPropogation();
+                    e.stopPropagation();
                     setSelectedEvent(event);
                     setIsRegisterDialogOpen(true);
                   }}
