@@ -398,15 +398,15 @@ const StudentLeaderDashboard = () => {
     });
   };
 
-  // const formatEventTime = dateString => {
-  //   if (!dateString || dateString === "0001-01-01T00:00:00Z") {
-  //     return "Time not set";
-  //   }
-  //   return new Date(dateString).toLocaleTimeString("en-US", {
-  //     hour: "2-digit",
-  //     minute: "2-digit",
-  //   });
-  // };
+  const formatEventTime = dateString => {
+    if (!dateString || dateString === "0001-01-01T00:00:00Z") {
+      return "Time not set";
+    }
+    return new Date(dateString).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const getEventTypeColor = type => {
     const colors = {
@@ -635,6 +635,7 @@ const StudentLeaderDashboard = () => {
                   <TableHead>Event Title</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
                   <TableHead>Venue</TableHead>
                   <TableHead>Registrations</TableHead>
                   <TableHead>Status</TableHead>
@@ -649,6 +650,7 @@ const StudentLeaderDashboard = () => {
                       <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
                     </TableCell>
                     <TableCell>{formatEventDate(event.event_date)}</TableCell>
+                    <TableCell>{formatEventTime(event.event_date)}</TableCell>
                     <TableCell>{event.venue}</TableCell>
                     <TableCell>
                       <span className="font-semibold">{event.current_attendees}</span>/{event.max_attendees}

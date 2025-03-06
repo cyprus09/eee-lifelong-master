@@ -211,7 +211,6 @@ const EventsPage = () => {
     });
   };
 
-  // New function to format time only
   const formatEventTime = dateString => {
     if (!dateString || dateString === "0001-01-01T00:00:00Z") {
       return "Time not set";
