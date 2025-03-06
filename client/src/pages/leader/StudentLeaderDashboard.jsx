@@ -25,7 +25,8 @@ import Footer from "../../components/common/Footer";
 import AddEventForm from "../../components/leader/AddEventForm";
 import EditEventForm from "../../components/leader/EditEventForm";
 import RoomManagementDialog from "../leader/RoomManagementDialog";
-import ExportDialog from "../../components/common/ExportDialog";
+import ExportEventsDialog from "../../components/common/ExportEventsDialog";
+import ExportAttendeesDialog from "../../components/common/ExportAttendeesDialog";
 import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
 import CancelDialog from "../../components/common/CancelDialog";
@@ -67,7 +68,8 @@ const StudentLeaderDashboard = () => {
     mostPopularType: null,
   });
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
-  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isExportEventsDialogOpen, setIsExportEventsDialogOpen] = useState(false);
+  const [isExportAttendeesDialogOpen, setIsExportAttendeesDialogOpen] = useState(false);
 
   // Fetch all events
   const fetchAllEvents = async () => {
@@ -590,7 +592,7 @@ const StudentLeaderDashboard = () => {
           </div>
 
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={() => setIsExportDialogOpen(true)}>
+            <Button variant="outline" onClick={() => setIsExportEventsDialogOpen(true)}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -945,7 +947,7 @@ const StudentLeaderDashboard = () => {
           event={selectedEvent}
         />
       )}
-      {/* Cancel event confirmation dialog */}
+
       <CancelDialog
         isOpen={isCancelDialogOpen}
         onClose={() => setIsCancelDialogOpen(false)}
@@ -1002,7 +1004,7 @@ const StudentLeaderDashboard = () => {
             </Button>
             <Button
               onClick={() => {
-                setIsExportDialogOpen(true);
+                setIsExportAttendeesDialogOpen(true);
               }}
             >
               <Download className="h-4 w-4 mr-2" />
@@ -1012,10 +1014,17 @@ const StudentLeaderDashboard = () => {
         </DialogContent>
       </Dialog>
 
-      {isExportDialogOpen && (
-        <ExportDialog
-          isOpen={isExportDialogOpen}
-          onClose={() => setIsExportDialogOpen(false)}
+      <ExportAttendeesDialog
+  isOpen={isExportAttendeesDialogOpen}
+  onClose={() => setIsExportAttendeesDialogOpen(false)}
+  attendees={attendees}
+  eventTitle={selectedEvent?.title}
+/>
+
+      {isExportEventsDialogOpen && (
+        <ExportEventsDialog
+          isOpen={isExportEventsDialogOpen}
+          onClose={() => setIsExportEventsDialogOpen(false)}
           events = {allEvents}
         />
       )}

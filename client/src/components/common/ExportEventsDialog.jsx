@@ -12,7 +12,7 @@ import { jsPDF } from "jspdf";
 import { toast } from "@/hooks/use-toast";
 import "jspdf-autotable";
 
-const ExportDialog = ({ isOpen, onClose, events }) => {
+const ExportEventsDialog = ({ isOpen, onClose, events }) => {
   const [dateFilter, setDateFilter] = useState({
     enabled: false,
     startMonth: "1",
@@ -376,4 +376,4 @@ const ExportDialog = ({ isOpen, onClose, events }) => {
   );
 };
 
-export default ExportDialog;
+export default ExportEventsDialog;

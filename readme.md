@@ -9,11 +9,13 @@ This platform provides a complete solution for event management with different u
 ## Technology Stack
 
 ### Frontend
+
 - React.js
 - Tailwind CSS
 - Vite
 
 ### Backend
+
 - Golang
 - SQL Database
 
@@ -35,62 +37,76 @@ This platform provides a complete solution for event management with different u
     │   ├── vite.config.js
     │   ├── .gitignore
     │   ├── public/
-    │   └── src/
-    │       ├── App.css
-    │       ├── App.jsx
-    │       ├── custom.d.ts
-    │       ├── index.css
-    │       ├── main.jsx
-    │       ├── assets/
-    │       │   └── carousel/
-    │       ├── components/
-    │       │   ├── ProtectedRoute.jsx
-    │       │   ├── common/
-    │       │   │   ├── CancelDialog.jsx
-    │       │   │   ├── CarouselSlides.jsx
-    │       │   │   ├── ErrorBoundary.jsx
-    │       │   │   ├── Footer.jsx
-    │       │   │   ├── Navbar.jsx
-    │       │   │   └── RegisterDialog.jsx
-    │       │   └── ui/
-    │       │       ├── alert-dialog.tsx
-    │       │       ├── alert.tsx
-    │       │       ├── avatar.tsx
-    │       │       ├── badge.tsx
-    │       │       ├── button.tsx
-    │       │       ├── calendar.tsx
-    │       │       ├── card.tsx
-    │       │       ├── carousel.tsx
-    │       │       ├── checkbox.tsx
-    │       │       ├── dialog.tsx
-    │       │       ├── dropdown-menu.tsx
-    │       │       ├── input.tsx
-    │       │       ├── label.tsx
-    │       │       ├── select.tsx
-    │       │       ├── separator.tsx
-    │       │       ├── tabs.tsx
-    │       │       ├── textarea.tsx
-    │       │       ├── toast.tsx
-    │       │       └── toaster.tsx
-    │       ├── contexts/
-    │       │   └── AuthContext.jsx
-    │       ├── hooks/
-    │       │   └── use-toast.tsx
-    │       ├── lib/
-    │       │   └── utils.ts
-    │       └── pages/
-    │           ├── admin/
-    │           │   └── AdminDashboard.jsx
-    │           ├── common/
-    │           │   ├── EventsPage.jsx
-    │           │   ├── HomePage.jsx
-    │           │   ├── LoginPage.jsx
-    │           │   ├── ProfilePage.jsx
-    │           │   └── RegisterPage.jsx
-    │           └── leader/
-    │               ├── AddEventForm.jsx
-    │               └── RoomManagementDialog.jsx
+    │   ├── src/
+    │   │   ├── App.css
+    │   │   ├── App.jsx
+    │   │   ├── custom.d.ts
+    │   │   ├── index.css
+    │   │   ├── main.jsx
+    │   │   ├── assets/
+    │   │   │   └── carousel/
+    │   │   ├── components/
+    │   │   │   ├── ProtectedRoute.jsx
+    │   │   │   ├── common/
+    │   │   │   │   ├── CancelDialog.jsx
+    │   │   │   │   ├── CarouselSlides.jsx
+    │   │   │   │   ├── EmailPreferences.jsx
+    │   │   │   │   ├── ErrorBoundary.jsx
+    │   │   │   │   ├── EventDialog.jsx
+    │   │   │   │   ├── ExportDialog.jsx
+    │   │   │   │   ├── Footer.jsx
+    │   │   │   │   ├── Navbar.jsx
+    │   │   │   │   └── RegisterDialog.jsx
+    │   │   │   ├── leader/
+    │   │   │   │   ├── AddEventForm.jsx
+    │   │   │   │   └── EditEventForm.jsx
+    │   │   │   └── ui/
+    │   │   │       ├── alert-dialog.tsx
+    │   │   │       ├── alert.tsx
+    │   │   │       ├── avatar.tsx
+    │   │   │       ├── badge.tsx
+    │   │   │       ├── button.tsx
+    │   │   │       ├── calendar.tsx
+    │   │   │       ├── card.tsx
+    │   │   │       ├── carousel.tsx
+    │   │   │       ├── checkbox.tsx
+    │   │   │       ├── dialog.tsx
+    │   │   │       ├── dropdown-menu.tsx
+    │   │   │       ├── input.tsx
+    │   │   │       ├── label.tsx
+    │   │   │       ├── select.tsx
+    │   │   │       ├── separator.tsx
+    │   │   │       ├── sonner.tsx
+    │   │   │       ├── table.tsx
+    │   │   │       ├── tabs.tsx
+    │   │   │       ├── textarea.tsx
+    │   │   │       ├── toast.tsx
+    │   │   │       ├── toaster.tsx
+    │   │   │       └── tooltip.tsx
+    │   │   ├── contexts/
+    │   │   │   └── AuthContext.jsx
+    │   │   ├── hooks/
+    │   │   │   └── use-toast.tsx
+    │   │   ├── lib/
+    │   │   │   └── utils.ts
+    │   │   └── pages/
+    │   │       ├── admin/
+    │   │       │   └── AdminDashboard.jsx
+    │   │       ├── common/
+    │   │       │   ├── HomePage.jsx
+    │   │       │   ├── LoginPage.jsx
+    │   │       │   ├── NotFoundPage.jsx
+    │   │       │   ├── ProfilePage.jsx
+    │   │       │   └── RegisterPage.jsx
+    │   │       ├── leader/
+    │   │       │   ├── RoomManagementDialog.jsx
+    │   │       │   └── StudentLeaderDashboard.jsx
+    │   │       └── student/
+    │   │           └── EventsPage.jsx
+    │   └── .vscode/
+    │       └── extensions.json
     ├── db/
+    │   ├── email-notifs.sql
     │   ├── main.sql
     │   └── sample_events.sql
     ├── server/
@@ -107,7 +123,9 @@ This platform provides a complete solution for event management with different u
     │   ├── handlers/
     │   │   ├── auth.go
     │   │   ├── event.go
-    │   │   └── rooms.go
+    │   │   ├── leader_dashboard.go
+    │   │   ├── rooms.go
+    │   │   └── student_leader.go
     │   ├── middleware/
     │   │   └── auth.go
     │   └── models/
@@ -120,6 +138,7 @@ This platform provides a complete solution for event management with different u
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v16+)
 - Go (v1.18+)
 - MySQL or PostgreSQL
@@ -163,21 +182,25 @@ mysql -u username -p database_name < db/sample_events.sql
 ## Features
 
 ### User Authentication
+
 - Registration and login
 - Protected routes
 - Role-based access control (Admin, Leader, User)
 
 ### Event Management
+
 - Browse available events
 - Register for events
 - Create and manage events (Admin/Leader)
 - Cancel registrations
 
 ### Room Management
+
 - Room booking and availability
 - Room capacity tracking
 
 ### Admin Dashboard
+
 - User management
 - Event oversight
 - System configuration
@@ -185,11 +208,13 @@ mysql -u username -p database_name < db/sample_events.sql
 ## API Endpoints
 
 ### Authentication
+
 - `POST /api/auth/register` - Register a new user
 - `POST /api/auth/login` - Login a user
 - `GET /api/auth/profile` - Get user profile
 
 ### Events
+
 - `GET /api/events` - List all events
 - `POST /api/events` - Create a new event (Admin/Leader)
 - `GET /api/events/:id` - Get event details
@@ -199,6 +224,7 @@ mysql -u username -p database_name < db/sample_events.sql
 - `DELETE /api/events/:id/register` - Cancel registration
 
 ### Rooms
+
 - `GET /api/rooms` - List all rooms
 - `POST /api/rooms` - Create a new room (Admin)
 - `PUT /api/rooms/:id` - Update room details (Admin)
@@ -207,6 +233,7 @@ mysql -u username -p database_name < db/sample_events.sql
 ## Development
 
 ### Frontend Component Structure
+
 - `common/` - Shared components (Navbar, Footer, etc.)
 - `ui/` - Shadcn UI components
 - `pages/` - Main page components
@@ -214,6 +241,7 @@ mysql -u username -p database_name < db/sample_events.sql
 - `hooks/` - Custom React hooks
 
 ### Backend Structure
+
 - `api/` - API route definitions
 - `handlers/` - Request handlers
 - `middleware/` - Custom middleware
