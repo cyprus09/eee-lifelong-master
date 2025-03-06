@@ -22,6 +22,7 @@ This platform provides a complete solution for event management with different u
 ## Directory Structure
 
 ```
+Directory structure:
 └── eee-lifelong-master/
     ├── readme.md
     ├── client/
@@ -53,7 +54,8 @@ This platform provides a complete solution for event management with different u
     │   │   │   │   ├── EmailPreferences.jsx
     │   │   │   │   ├── ErrorBoundary.jsx
     │   │   │   │   ├── EventDialog.jsx
-    │   │   │   │   ├── ExportDialog.jsx
+    │   │   │   │   ├── ExportAttendeesDialog.jsx
+    │   │   │   │   ├── ExportEventsDialog.jsx
     │   │   │   │   ├── Footer.jsx
     │   │   │   │   ├── Navbar.jsx
     │   │   │   │   └── RegisterDialog.jsx
@@ -61,28 +63,6 @@ This platform provides a complete solution for event management with different u
     │   │   │   │   ├── AddEventForm.jsx
     │   │   │   │   └── EditEventForm.jsx
     │   │   │   └── ui/
-    │   │   │       ├── alert-dialog.tsx
-    │   │   │       ├── alert.tsx
-    │   │   │       ├── avatar.tsx
-    │   │   │       ├── badge.tsx
-    │   │   │       ├── button.tsx
-    │   │   │       ├── calendar.tsx
-    │   │   │       ├── card.tsx
-    │   │   │       ├── carousel.tsx
-    │   │   │       ├── checkbox.tsx
-    │   │   │       ├── dialog.tsx
-    │   │   │       ├── dropdown-menu.tsx
-    │   │   │       ├── input.tsx
-    │   │   │       ├── label.tsx
-    │   │   │       ├── select.tsx
-    │   │   │       ├── separator.tsx
-    │   │   │       ├── sonner.tsx
-    │   │   │       ├── table.tsx
-    │   │   │       ├── tabs.tsx
-    │   │   │       ├── textarea.tsx
-    │   │   │       ├── toast.tsx
-    │   │   │       ├── toaster.tsx
-    │   │   │       └── tooltip.tsx
     │   │   ├── contexts/
     │   │   │   └── AuthContext.jsx
     │   │   ├── hooks/
@@ -99,10 +79,17 @@ This platform provides a complete solution for event management with different u
     │   │       │   ├── ProfilePage.jsx
     │   │       │   └── RegisterPage.jsx
     │   │       ├── leader/
+    │   │       │   ├── AddEventForm.jsx
     │   │       │   ├── RoomManagementDialog.jsx
     │   │       │   └── StudentLeaderDashboard.jsx
     │   │       └── student/
     │   │           └── EventsPage.jsx
+    │   ├── supabase/
+    │   │   ├── config.toml
+    │   │   ├── .gitignore
+    │   │   └── functions/
+    │   │       └── send-event-notifications/
+    │   │           └── index.ts
     │   └── .vscode/
     │       └── extensions.json
     ├── db/

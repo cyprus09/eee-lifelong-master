@@ -6,7 +6,7 @@ import { saveAs } from "file-saver";
 import { utils, write } from "xlsx";
 import { jsPDF } from "jspdf";
 import { toast } from "@/hooks/use-toast";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 const ExportAttendeesDialog = ({ isOpen, onClose, attendees, eventTitle }) => {
   // Function to export attendee data as CSV
@@ -42,7 +42,7 @@ const ExportAttendeesDialog = ({ isOpen, onClose, attendees, eventTitle }) => {
       doc.text(`Total Attendees: ${attendees.length}`, 14, 38);
 
       // Create the table with attendee data
-      doc.autoTable({
+      autoTable(doc, {
         startY: 45,
         head: [["Name", "Email", "Registration Date"]],
         body: attendees.map(attendee => [
