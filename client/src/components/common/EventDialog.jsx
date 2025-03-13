@@ -75,7 +75,7 @@ const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen 
                 <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div>
                   <p className="font-medium">Date & Time</p>
-                  <p className="text-gray-600">{formatEventDate(event.event_date)}</p>
+                  <p className="text-gray-600">{formatEventDate(event.event_date)} - {formatEventDate(event.event_end)}</p>
                 </div>
               </div>
 

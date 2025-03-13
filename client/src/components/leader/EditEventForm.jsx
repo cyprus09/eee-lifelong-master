@@ -14,6 +14,7 @@ const EditEventForm = ({ isOpen, onClose, onSubmit, event }) => {
     event_type: "",
     event_date: new Date(),
     event_time: "12:00",
+    event_end: "14:00",
     venue: "",
     max_attendees: "",
     description: "",
@@ -26,12 +27,16 @@ const EditEventForm = ({ isOpen, onClose, onSubmit, event }) => {
       const eventDate = new Date(event.event_date);
       const hours = eventDate.getHours().toString().padStart(2, "0");
       const minutes = eventDate.getMinutes().toString().padStart(2, "0");
+      const eventEnd = new Date(event.event_end);
+      const hoursEnd = eventEnd.getHours().toString().padStart(2, "0");
+      const minutesEnd = eventEnd.getMinutes().toString().padStart(2, "0");
 
       setFormData({
         title: event.title || "",
         event_type: event.event_type || "",
         event_date: eventDate,
         event_time: `${hours}:${minutes}`,
+        event_end: `${hoursEnd}:${minutesEnd}`,
         venue: event.venue || "",
         max_attendees: event.max_attendees?.toString() || "",
         description: event.description || "",
@@ -125,6 +130,14 @@ const EditEventForm = ({ isOpen, onClose, onSubmit, event }) => {
                     type="time"
                     value={formData.event_time}
                     onChange={e => handleChange("event_time", e.target.value)}
+                    required
+                  />
+                  <Label htmlFor="event_end">End Time</Label>
+                  <Input
+                    id="event_end"
+                    type="time"
+                    value={formData.event_end}
+                    onChange={e => handleChange("event_end", e.target.value)}
                     required
                   />
                 </div>

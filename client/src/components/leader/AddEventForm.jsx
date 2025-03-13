@@ -14,6 +14,7 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
     event_type: "",
     event_date: new Date(),
     event_time: "12:00",
+    event_end_time: "14:00",
     venue: "",
     max_attendees: "",
     description: "",
@@ -27,21 +28,53 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
     }));
   };
 
+  const updateEndTime = startTime => {
+    const [hours, minutes] = startTime.split(":");
+    let endHours = parseInt(hours) + 2;
+    if (endHours >= 24) {
+      endHours = endHours - 24;
+    }
+    const formattedEndHours = endHours.toString().padStart(2, "0");
+    return `${formattedEndHours}:${minutes}`;
+  };
+
+  const handleTimeChange = value => {
+    setFormData(prev => ({
+      ...prev,
+      event_time: value,
+      event_end_time: updateEndTime(value),
+    }));
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     try {
-      const dateObj = new Date(formData.event_date);
-      const [hours, minutes] = formData.event_time.split(":");
-      dateObj.setHours(parseInt(hours), parseInt(minutes), 0);
+      // Process start date/time
+      const startDateObj = new Date(formData.event_date);
+      const [startHours, startMinutes] = formData.event_time.split(":");
+      startDateObj.setHours(parseInt(startHours), parseInt(startMinutes), 0);
+
+      // Process end date/time (same date as start, different time)
+      const endDateObj = new Date(formData.event_date);
+      const [endHours, endMinutes] = formData.event_end_time.split(":");
+      endDateObj.setHours(parseInt(endHours), parseInt(endMinutes), 0);
+
+      // If end time is earlier than start time, assume it's the next day
+      if (endDateObj < startDateObj) {
+        endDateObj.setDate(endDateObj.getDate() + 1);
+      }
 
       const formattedData = {
         ...formData,
-        event_date: dateObj.toISOString(),
+        event_date: startDateObj.toISOString(),
+        event_end: endDateObj.toISOString(),
         max_attendees: parseInt(formData.max_attendees),
         current_attendees: 0,
       };
 
+      // Remove temporary form fields
       delete formattedData.event_time;
+      delete formattedData.event_end_time;
 
       await onSubmit(formattedData);
       onClose();
@@ -99,15 +132,27 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="event_time">Time</Label>
-                  <Input
-                    id="event_time"
-                    type="time"
-                    value={formData.event_time}
-                    onChange={e => handleChange("event_time", e.target.value)}
-                    required
-                  />
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="event_time">Start Time</Label>
+                    <Input
+                      id="event_time"
+                      type="time"
+                      value={formData.event_time}
+                      onChange={e => handleTimeChange(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="event_end_time">End Time</Label>
+                    <Input
+                      id="event_end_time"
+                      type="time"
+                      value={formData.event_end_time}
+                      onChange={e => handleChange("event_end_time", e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 

@@ -121,7 +121,6 @@ const EventsPage = () => {
       });
     }
 
-    // Sort events by date - most recent at the top
     return filteredEvents.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
   };
 
@@ -295,7 +294,7 @@ const EventsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-gray-600">
                 <Clock className="h-4 w-4" />
-                <span>{formatEventTime(event.event_date)}</span>
+                <span>{formatEventTime(event.event_date)} - {formatEventTime(event.event_end)}</span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="h-4 w-4" />

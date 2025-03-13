@@ -113,7 +113,7 @@ func (h *EventHandler) GetEvents(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
+	
 	// Try to unmarshal the response
 	var events []models.Event
 	if err := json.Unmarshal(result, &events); err != nil {
