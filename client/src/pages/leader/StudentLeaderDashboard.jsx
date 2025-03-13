@@ -3,7 +3,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar as CalendarIcon,
@@ -26,6 +25,7 @@ import EditEventForm from "../../components/leader/EditEventForm";
 import RoomManagementDialog from "../leader/RoomManagementDialog";
 import ExportEventsDialog from "../../components/common/ExportEventsDialog";
 import ExportAttendeesDialog from "../../components/common/ExportAttendeesDialog";
+import RoomCalendarView from "./RoomCalendarView";
 import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
 import CancelDialog from "../../components/common/CancelDialog";
@@ -268,8 +268,7 @@ const StudentLeaderDashboard = () => {
               parseInt(room.selectedTimeSlot.startTime.split(":")[1])
             ).toISOString()
           : prev.event_date,
-        // You could also save the end time if your event model supports it
-        // end_time: room.selectedTimeSlot ? room.selectedTimeSlot.endTime : prev.end_time,
+        end_time: room.selectedTimeSlot ? room.selectedTimeSlot.endTime : prev.end_time,
       }));
     } else {
       setIsAddEventOpen(true);
@@ -723,6 +722,7 @@ const StudentLeaderDashboard = () => {
                   <TableHead>Type</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Time</TableHead>
+                  <TableHead>End</TableHead>
                   <TableHead>Venue</TableHead>
                   <TableHead>Registrations</TableHead>
                   <TableHead>Status</TableHead>
@@ -738,6 +738,7 @@ const StudentLeaderDashboard = () => {
                     </TableCell>
                     <TableCell>{formatEventDate(event.event_date)}</TableCell>
                     <TableCell>{formatEventTime(event.event_date)}</TableCell>
+                    <TableCell>{formatEventTime(event.event_end)}</TableCell>
                     <TableCell>{event.venue}</TableCell>
                     <TableCell>
                       <span className="font-semibold">{event.current_attendees}</span>/{event.max_attendees}
@@ -795,34 +796,10 @@ const StudentLeaderDashboard = () => {
   };
 
   // Render rooms management
-  const renderRoomsManagement = () => {
+  const renderRoomsCalendar = () => {
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">Room Availability</h2>
-          <Button onClick={() => setIsRoomDialogOpen(true)}>
-            <MapPin className="h-4 w-4 mr-2" />
-            Select Room
-          </Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Selected Date: {selectedDate.toLocaleDateString()}</CardTitle>
-            <CardDescription>Room availability for the selected date is shown below</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              className="rounded-md border mx-auto mb-4"
-            />
-            <Button className="w-full mt-4" onClick={() => setIsRoomDialogOpen(true)}>
-              Check Availability
-            </Button>
-          </CardContent>
-        </Card>
+        <RoomCalendarView/>
       </div>
     );
   };
@@ -1087,7 +1064,7 @@ const StudentLeaderDashboard = () => {
               onClick={() => setActiveTab("rooms")}
             >
               <MapPin className="h-4 w-4 mr-2" />
-              Room Management
+              Room Calendar
             </Button>
             <Button
               variant={activeTab === "analytics" ? "default" : "ghost"}
@@ -1135,7 +1112,7 @@ const StudentLeaderDashboard = () => {
                 <h1 className="text-2xl font-bold">
                   {activeTab === "dashboard" && "Dashboard Overview"}
                   {activeTab === "events" && "Event Management"}
-                  {activeTab === "rooms" && "Room Management"}
+                  {activeTab === "rooms" && "Room Calendar"}
                   {activeTab === "analytics" && "Event Analytics"}
                 </h1>
                 <p className="text-gray-600">
@@ -1158,7 +1135,7 @@ const StudentLeaderDashboard = () => {
 
               {activeTab === "events" && renderEventManagement()}
 
-              {activeTab === "rooms" && renderRoomsManagement()}
+              {activeTab === "rooms" && renderRoomsCalendar()}
 
               {activeTab === "analytics" && renderAnalytics()}
             </div>
