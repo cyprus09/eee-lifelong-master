@@ -17,7 +17,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
 
 const HomePage = () => {
-  const { user, userRole, hasRole, isStudentLeader } = useAuth();
+  const { user, userRole, hasRole, isStudentLeader, isAdmin } = useAuth();
   const [date, setDate] = useState(new Date());
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -208,10 +208,12 @@ const HomePage = () => {
                 <div className="flex justify-between items-center">
                   <h3 className="font-semibold">Quick Actions</h3>
                   <div className="flex gap-4">
-                    <Button onClick={() => setIsAddEventOpen(true)}>
-                      <Plus className="h-4 w-3 mr-2" />
-                      Create Event
-                    </Button>
+                    {isStudentLeader() && (
+                      <Button onClick={() => setIsAddEventOpen(true)}>
+                        <Plus className="h-4 w-3 mr-2" />
+                        Create Event
+                      </Button>
+                    )}
                     <Button variant="outline" onClick={() => navigate("/events")}>
                       Manage Events
                     </Button>

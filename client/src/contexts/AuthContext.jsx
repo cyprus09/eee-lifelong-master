@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "../lib/supabaseClient";
 
 const AuthContext = createContext({});
@@ -12,9 +12,12 @@ export const AuthProvider = ({ children }) => {
     return userRole === "student_leader";
   };
 
+  const isAdmin = () => {
+    return userRole === "admin";
+  };
+
   const signUp = async ({ email, password, options }) => {
     try {
-      // Create auth user with email confirmation
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -192,7 +195,6 @@ export const AuthProvider = ({ children }) => {
 
         if (session?.user) {
           setUser(session.user);
-          // Make a direct API call to get the role instead of using fetchUserRole
           try {
             const response = await fetch("http://localhost:8080/api/users/role", {
               headers: {
@@ -237,7 +239,6 @@ export const AuthProvider = ({ children }) => {
 
       if (session?.user) {
         setUser(session.user);
-        // Add retry mechanism here as well
         try {
           const response = await fetch("http://localhost:8080/api/users/role", {
             headers: {
@@ -280,6 +281,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         fetchUserRole,
         isStudentLeader,
+        isAdmin,
         updateUserRole,
         hasRole,
         signUp,

@@ -122,13 +122,33 @@ func main() {
 			studentLeader.PUT("/events/:id", eventHandler.EditEvent)
 			studentLeader.PUT("/events/:id/cancel", eventHandler.CancelEvent)
 
+		}
+		
+		// Student leader and admin routes
+		common := protected.Group("/")
+		common.Use(middleware.RequireRole("admin", "student_leader"))
+		{
 			// New endpoints for student leader dashboard
-			studentLeader.GET("/events/:id/attendees", eventHandler.GetEventAttendees)
-			studentLeader.GET("/events/stats", eventHandler.GetEventStats)
-
+			common.GET("/events/:id/attendees", eventHandler.GetEventAttendees)
+			common.GET("/events/stats", eventHandler.GetEventStats)
+	
 			// Room management
-			studentLeader.GET("/rooms", eventHandler.GetRooms)
-			studentLeader.GET("/rooms/available", eventHandler.GetAvailableRooms)
+			common.GET("/rooms", eventHandler.GetRooms)
+			common.GET("/rooms/available", eventHandler.GetAvailableRooms)
+		}
+
+		// Admin routes
+		admin := protected.Group("/")
+		admin.Use(middleware.RequireRole("admin"))
+		{			
+			// Room CRUD operations
+			admin.POST("", eventHandler.CreateRoom)
+			admin.GET("/:id", eventHandler.GetRoomById)
+			admin.PUT("/:id", eventHandler.UpdateRoom)
+			admin.DELETE("/:id", eventHandler.DeleteRoom)
+			
+			// Room analytics
+			admin.GET("/analytics", eventHandler.GetRoomAnalytics)	
 		}
 	}
 

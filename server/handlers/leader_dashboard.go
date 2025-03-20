@@ -13,7 +13,7 @@ func (h *EventHandler) GetEventAttendees(c *gin.Context) {
 	userRole := c.GetString("userRole")
 
 	if userRole != "student_leader" && userRole != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only student leaders can view attendee details"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only student leaders and can view attendee details"})
 		return
 	}
 
@@ -113,7 +113,7 @@ func (h *EventHandler) GetEventStats(c *gin.Context) {
 	userRole := c.GetString("userRole")
 
 	if userRole != "student_leader" && userRole != "admin" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Only student leaders can view statistics"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Only student leaders and admins can view statistics"})
 		return
 	}
 

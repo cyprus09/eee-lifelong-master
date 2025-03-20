@@ -16,7 +16,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { toast } from "@/hooks/use-toast";
 
 const EventsPage = () => {
-  const { isStudentLeader } = useAuth();
+  const { isStudentLeader, isAdmin } = useAuth();
   const [allEvents, setAllEvents] = useState([]);
   const [registeredEvents, setRegisteredEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
