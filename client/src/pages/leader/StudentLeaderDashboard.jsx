@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,7 @@ import {
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from "date-fns";
 
 const StudentLeaderDashboard = () => {
-  const { user, isStudentLeader } = useAuth();
+  const { user, isStudentLeader, isAdmin } = useAuth();
   const [allEvents, setAllEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
@@ -224,7 +224,7 @@ const StudentLeaderDashboard = () => {
     };
     fetchInitialData();
 
-    if (!isStudentLeader()) {
+    if (!isStudentLeader() && !isAdmin()) {
       window.location.href = "/events";
     }
   }, []);

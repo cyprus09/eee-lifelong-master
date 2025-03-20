@@ -4,18 +4,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, Home, Calendar, Users, LayoutDashboard } from "lucide-react";
+import { Menu, Home, Calendar, LayoutDashboard, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
-import { useState } from "react";
+import React, { useState } from "react";
 
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut, user, userRole, isStudentLeader } = useAuth();
+  const { signOut, user, userRole, isStudentLeader, isAdmin } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -72,7 +72,7 @@ const Navbar = () => {
             </Link>
           </li>
 
-          {isStudentLeader() && (
+          {(isStudentLeader() || isAdmin()) && (
             <li className={isActive("/leader/dashboard") ? "text-primary font-medium" : ""}>
               <Link to="/leader/dashboard" className="flex items-center gap-1">
                 <LayoutDashboard className="h-4 w-4" />
@@ -81,9 +81,9 @@ const Navbar = () => {
             </li>
           )}
 
-          {userRole === "admin" && (
+          {isAdmin() && (
             <li className={isActive("/admin") ? "text-primary font-medium" : ""}>
-              <Link to="/admin">Admin</Link>
+              <Link to="/admin" className="flex items-center gap-1"><User className="h-4 w-4"/>Admin</Link>
             </li>
           )}
         </ul>
@@ -95,7 +95,7 @@ const Navbar = () => {
                 {user.email ? user.email.charAt(0).toUpperCase() : "U"}
               </div>
               <span className="text-sm hidden lg:inline-block">
-                {isStudentLeader() ? "Leader" : userRole === "admin" ? "Admin" : "Student"}
+                {isStudentLeader() ? "Leader" : isAdmin() ? "Admin" : "Student"}
               </span>
             </span>
           )}
@@ -131,8 +131,7 @@ const Navbar = () => {
                   </Link>
                 </DropdownMenuItem>
 
-                {/* Conditional mobile navigation based on user role */}
-                {isStudentLeader() && (
+                {(isStudentLeader() || isAdmin()) && (
                   <DropdownMenuItem>
                     <Link to="/leader/dashboard" className="w-full flex items-center gap-2">
                       <LayoutDashboard className="h-4 w-4" />
@@ -141,9 +140,10 @@ const Navbar = () => {
                   </DropdownMenuItem>
                 )}
 
-                {userRole === "admin" && (
+                {isAdmin() && (
                   <DropdownMenuItem>
                     <Link to="/admin" className="w-full">
+                    <User className="h-4 w-4" />
                       Admin
                     </Link>
                   </DropdownMenuItem>
@@ -155,7 +155,7 @@ const Navbar = () => {
                       <div className="w-full flex items-center justify-between">
                         <span className="text-sm">{user.email}</span>
                         <span className="text-xs bg-primary text-white px-2 py-1 rounded">
-                          {isStudentLeader() ? "Leader" : userRole === "admin" ? "Admin" : "Student"}
+                          {isStudentLeader() ? "Leader" : isAdmin() ? "Admin" : "Student"}
                         </span>
                       </div>
                     </DropdownMenuItem>

@@ -7,8 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/contexts/AuthContext";
 
 const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
+  const { isStudentLeader } = useAuth();
   const [formData, setFormData] = useState({
     title: "",
     event_type: "",
@@ -158,7 +160,7 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
             <Button variant="outline" type="button" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit">Create Event</Button>
+            {isStudentLeader() && <Button type="submit">Create Event</Button>}
           </div>
         </form>
       </DialogContent>
