@@ -6,11 +6,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MapPin, Clock, Users, Filter } from "lucide-react";
+import AddEventForm from "../../components/leader/AddEventForm";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "../../lib/supabaseClient";
 
 const RoomCalendarView = () => {
   // State for selected date and view
+  const {isStudentLeader} = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState("week");
   const [rooms, setRooms] = useState([]);
@@ -19,6 +22,8 @@ const RoomCalendarView = () => {
   const [error, setError] = useState(null);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
+  const [isAddEventOpen, setIsAddEventOpen] = useState(false);
+  const [eventFormData, setEventFormData] = useState(null);
   const [roomTypeFilter, setRoomTypeFilter] = useState("all");
   const [minCapacityFilter, setMinCapacityFilter] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
@@ -347,21 +352,71 @@ const RoomCalendarView = () => {
     setSelectedRoom(room);
     setIsRoomDialogOpen(false);
 
-    // Add room to event form data
-    const selectedTimeSlot = {
-      startTime: startTime,
-      endTime: endTime,
-    };
+    if (isAddEventOpen) {
+      setEventFormData(prev => ({
+        ...prev,
+        venue: room.name,
+        event_date: room.selectedTimeSlot
+          ? new Date(
+              selectedDate.getFullYear(),
+              selectedDate.getMonth(),
+              selectedDate.getDate(),
+              parseInt(room.selectedTimeSlot.startTime.split(":")[0]),
+              parseInt(room.selectedTimeSlot.startTime.split(":")[1])
+            ).toISOString()
+          : prev.event_date,
+        end_time: room.selectedTimeSlot ? room.selectedTimeSlot.endTime : prev.end_time,
+      }));
+    } else {
+      setIsAddEventOpen(true);
+    }
 
-    room.selectedTimeSlot = selectedTimeSlot;
+    const timeInfo = room.selectedTimeSlot
+      ? ` (${room.selectedTimeSlot.startTime} - ${room.selectedTimeSlot.endTime})`
+      : "";
 
     toast({
       title: "Room Selected",
-      description: `Selected ${room.name} (Capacity: ${room.capacity}) for ${format(
-        selectedDate,
-        "MMMM d, yyyy"
-      )} ${startTime}-${endTime}`,
+      description: `Selected ${room.name} (Capacity: ${room.capacity})${timeInfo}`,
     });
+  };
+
+  const handleSubmit = async eventData => {
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch("http://localhost:8080/api/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          ...eventData,
+          status: "upcoming",
+          venue: selectedRoom?.name || eventData.venue,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create event");
+      }
+
+      // Refresh events after creating a new one
+      await fetchAllEvents();
+      setIsAddEventOpen(false);
+
+      toast({
+        title: "Success!",
+        description: "Event created successfully.",
+      });
+    } catch (error) {
+      console.error("Error creating event:", error);
+      toast({
+        title: "Event creation failed",
+        description: "There was a problem creating the event. Please try again.",
+      });
+    }
   };
 
   // Event Detail Dialog
@@ -523,7 +578,7 @@ const RoomCalendarView = () => {
                     className="cursor-pointer hover:bg-gray-50"
                     onClick={() => handleRoomSelection(room)}
                   >
-                    <CardContent className="p-4">
+                    <CardContent className="p-4" onClick={() => setIsAddEventOpen(true)}>
                       <div className="flex justify-between items-center">
                         <div>
                           <h3 className="font-medium">{room.name}</h3>
@@ -913,6 +968,7 @@ const RoomCalendarView = () => {
 
       {selectedEvent && <EventDetailDialog />}
       <RoomSelectionDialog />
+      {isStudentLeader() && <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />}
     </div>
   );
 };
