@@ -33,6 +33,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { format } from "date-fns";
+import { supabase } from "../../lib/supabaseClient";
 
 const RoomManagementDashboard = () => {
   // State management
@@ -44,6 +45,8 @@ const RoomManagementDashboard = () => {
   const [buildingFilter, setBuildingFilter] = useState("all");
   const [capacityFilter, setCapacityFilter] = useState("");
   const [availabilityDate, setAvailabilityDate] = useState(new Date());
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Room CRUD state
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
@@ -65,9 +68,9 @@ const RoomManagementDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const roomsPerPage = 5;
 
-  // Mock room types and buildings for filtering
-  const roomTypes = ["Lecture Hall", "Tutorial Room", "Laboratory", "Meeting Room", "Auditorium"];
-  const buildings = ["Main Building", "Engineering Block", "Science Center", "Research Wing"];
+  // Room types and buildings for filtering (will be extracted from fetched data)
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [buildings, setBuildings] = useState([]);
 
   // Fetch rooms and events on component mount
   useEffect(() => {
@@ -84,184 +87,209 @@ const RoomManagementDashboard = () => {
   useEffect(() => {
     if (rooms.length > 0 && events.length > 0) {
       generateAnalyticsData();
+
+      // Extract unique room types and buildings
+      const types = [...new Set(rooms.map(room => room.room_type))];
+      const bldgs = [...new Set(rooms.map(room => room.building))];
+
+      setRoomTypes(types);
+      setBuildings(bldgs);
     }
   }, [rooms, events]);
 
-  // Simulated API call to fetch rooms
-  const fetchRooms = () => {
-    // Simulate API response with mock data
-    const mockRooms = [
-      {
-        id: "1",
-        name: "Room 101",
-        room_type: "Lecture Hall",
-        building: "Main Building",
-        floor: 1,
-        capacity: 120,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: "2",
-        name: "Room 102",
-        room_type: "Tutorial Room",
-        building: "Main Building",
-        floor: 1,
-        capacity: 40,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: "3",
-        name: "Lab A",
-        room_type: "Laboratory",
-        building: "Engineering Block",
-        floor: 2,
-        capacity: 30,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: "4",
-        name: "Conference Room 1",
-        room_type: "Meeting Room",
-        building: "Research Wing",
-        floor: 3,
-        capacity: 15,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: "5",
-        name: "Main Hall",
-        room_type: "Auditorium",
-        building: "Science Center",
-        floor: 1,
-        capacity: 250,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: "6",
-        name: "Room 201",
-        room_type: "Lecture Hall",
-        building: "Main Building",
-        floor: 2,
-        capacity: 110,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: "7",
-        name: "Room 202",
-        room_type: "Tutorial Room",
-        building: "Main Building",
-        floor: 2,
-        capacity: 45,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-      {
-        id: "8",
-        name: "Lab B",
-        room_type: "Laboratory",
-        building: "Engineering Block",
-        floor: 2,
-        capacity: 25,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    ];
+  // Fetch rooms from API
+  const fetchRooms = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    setRooms(mockRooms);
-    setFilteredRooms(mockRooms);
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error("No active session");
+      }
+
+      const response = await fetch(`http://localhost:8080/api/rooms`, {
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch rooms");
+      }
+
+      const data = await response.json();
+      setRooms(data || []);
+      setFilteredRooms(data || []);
+    } catch (error) {
+      console.error("Error fetching rooms:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Simulated API call to fetch events
-  const fetchEvents = () => {
-    // Mock events data
-    const today = new Date();
-    const mockEvents = [
-      {
-        id: "1",
-        title: "Introduction to AI",
-        event_date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2, 10, 0),
-        event_end: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2, 12, 0),
-        venue: "Room 101",
-        max_attendees: 100,
-        current_attendees: 85,
-        event_type: "Lecture",
-        status: "upcoming",
-      },
-      {
-        id: "2",
-        title: "Digital Circuit Lab",
-        event_date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 14, 0),
-        event_end: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1, 16, 0),
-        venue: "Lab A",
-        max_attendees: 30,
-        current_attendees: 28,
-        event_type: "Lab Session",
-        status: "upcoming",
-      },
-      {
-        id: "3",
-        title: "Faculty Meeting",
-        event_date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 9, 0),
-        event_end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 11, 0),
-        venue: "Conference Room 1",
-        max_attendees: 15,
-        current_attendees: 12,
-        event_type: "Meeting",
-        status: "past",
-      },
-      {
-        id: "4",
-        title: "Graduation Ceremony",
-        event_date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 5, 15, 0),
-        event_end: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 5, 18, 0),
-        venue: "Main Hall",
-        max_attendees: 250,
-        current_attendees: 230,
-        event_type: "Ceremony",
-        status: "upcoming",
-      },
-      {
-        id: "5",
-        title: "Data Structures Tutorial",
-        event_date: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2, 13, 0),
-        event_end: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 2, 15, 0),
-        venue: "Room 102",
-        max_attendees: 40,
-        current_attendees: 35,
-        event_type: "Tutorial",
-        status: "upcoming",
-      },
-      {
-        id: "6",
-        title: "Research Symposium",
-        event_date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2, 10, 0),
-        event_end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2, 17, 0),
-        venue: "Room 101",
-        max_attendees: 120,
-        current_attendees: 95,
-        event_type: "Symposium",
-        status: "past",
-      },
-      {
-        id: "7",
-        title: "Electronics Workshop",
-        event_date: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3, 14, 0),
-        event_end: new Date(today.getFullYear(), today.getMonth(), today.getDate() - 3, 16, 0),
-        venue: "Lab A",
-        max_attendees: 30,
-        current_attendees: 27,
-        event_type: "Workshop",
-        status: "past",
-      },
-    ];
+  // Fetch events from API
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    setEvents(mockEvents);
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error("No active session");
+      }
+
+      const url = `http://localhost:8080/api/events`;
+      console.log("Fetching all events from:", url);
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch events");
+      }
+
+      const data = await response.json();
+      setEvents(data || []);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add a new room
+  const addRoom = async roomData => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error("No active session");
+      }
+
+      const response = await fetch(`http://localhost:8080/api/admin/rooms`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(roomData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add room");
+      }
+
+      const newRoom = await response.json();
+      setRooms(prevRooms => [...prevRooms, newRoom]);
+      return newRoom;
+    } catch (error) {
+      console.error("Error adding room:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update an existing room
+  const updateRoom = async (roomId, roomData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error("No active session");
+      }
+  
+      // Log the exact data being sent
+      console.log("Updating room with data:", JSON.stringify(roomData));
+  
+      const response = await fetch(`http://localhost:8080/api/admins/rooms/${roomId}`, {
+        method: 'PUT',
+        headers: {
+          "Authorization": `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(roomData)
+      });
+  
+      // Log the raw response for debugging
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+      
+      // Try to parse the response as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+  
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update room");
+      }
+  
+      setRooms(prevRooms => 
+        prevRooms.map(room => room.id === roomId ? data : room)
+      );
+      return data;
+      
+    } catch (error) {
+      console.error("Error updating room:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Delete a room
+  const deleteRoom = async roomId => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error("No active session");
+      }
+
+      const response = await fetch(`http://localhost:8080/api/admin/rooms/${roomId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete room");
+      }
+
+      setRooms(prevRooms => prevRooms.filter(room => room.id !== roomId));
+      return true;
+    } catch (error) {
+      console.error("Error deleting room:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Check room availability for a specific date
@@ -303,15 +331,16 @@ const RoomManagementDashboard = () => {
       usageData.unshift({
         date: dateStr,
         events: dayEvents.length,
-        attendees: dayEvents.reduce((sum, event) => sum + event.current_attendees, 0),
+        attendees: dayEvents.reduce((sum, event) => sum + (event.current_attendees || 0), 0),
       });
     }
     setRoomUsageData(usageData);
 
     // Room type distribution
-    const typeData = roomTypes.map(type => {
-      const roomsOfType = rooms.filter(room => room.room_type === type);
-      const eventsInType = events.filter(event => roomsOfType.some(room => room.name === event.venue));
+    if (roomTypes.length > 0) {
+      const typeData = roomTypes.map(type => {
+        const roomsOfType = rooms.filter(room => room.room_type === type);
+        const eventsInType = events.filter(event => roomsOfType.some(room => room.name === event.venue));
 
       return {
         type,
@@ -321,6 +350,7 @@ const RoomManagementDashboard = () => {
       };
     });
     setRoomTypeDistribution(typeData);
+  }
 
     // Top used rooms
     const roomUsage = rooms.map(room => {
@@ -328,7 +358,7 @@ const RoomManagementDashboard = () => {
       return {
         ...room,
         eventCount: roomEvents.length,
-        attendeeCount: roomEvents.reduce((sum, event) => sum + event.current_attendees, 0),
+        attendeeCount: roomEvents.reduce((sum, event) => sum + (event.current_attendees || 0), 0),
       };
     });
 
@@ -337,6 +367,8 @@ const RoomManagementDashboard = () => {
 
   // Apply filters to the rooms list
   const applyFilters = () => {
+    if (!rooms.length) return;
+
     let filtered = [...rooms];
 
     if (searchTerm) {
@@ -351,7 +383,7 @@ const RoomManagementDashboard = () => {
       filtered = filtered.filter(room => room.room_type === roomTypeFilter);
     }
 
-    if (buildingFilter) {
+    if (buildingFilter && buildingFilter !== "all") {
       filtered = filtered.filter(room => room.building === buildingFilter);
     }
 
@@ -400,7 +432,7 @@ const RoomManagementDashboard = () => {
   };
 
   // Save room (create or update)
-  const handleSaveRoom = () => {
+  const handleSaveRoom = async () => {
     // Validate form
     if (
       !roomFormData.name ||
@@ -413,46 +445,64 @@ const RoomManagementDashboard = () => {
       return;
     }
 
-    if (currentRoom) {
-      // Update existing room
-      const updatedRooms = rooms.map(room =>
-        room.id === currentRoom.id
-          ? {
-              ...room,
-              name: roomFormData.name,
-              room_type: roomFormData.room_type,
-              building: roomFormData.building,
-              floor: parseInt(roomFormData.floor),
-              capacity: parseInt(roomFormData.capacity),
-              updated_at: new Date(),
-            }
-          : room
-      );
-      setRooms(updatedRooms);
-    } else {
-      // Add new room
-      const newRoom = {
-        id: (rooms.length + 1).toString(), // In a real app, this would be generated by the backend
+    try {
+      const processedData = {
         name: roomFormData.name,
         room_type: roomFormData.room_type,
         building: roomFormData.building,
-        floor: parseInt(roomFormData.floor),
-        capacity: parseInt(roomFormData.capacity),
-        created_at: new Date(),
-        updated_at: new Date(),
+        floor: parseInt(roomFormData.floor, 10),
+        capacity: parseInt(roomFormData.capacity, 10),
       };
-      setRooms([...rooms, newRoom]);
-    }
 
-    setIsRoomModalOpen(false);
+      if (currentRoom) {
+        await updateRoom(currentRoom.id, processedData);
+      } else {
+        await addRoom(processedData);
+      }
+
+      setIsRoomModalOpen(false);
+
+      // Refresh rooms list
+      fetchRooms();
+    } catch (error) {
+      console.error("Error saving room:", error);
+      alert(`Failed to save room: ${error.message}`);
+    }
   };
 
   // Delete a room
-  const handleDeleteRoom = roomId => {
+  const handleDeleteRoom = async roomId => {
     if (window.confirm("Are you sure you want to delete this room?")) {
-      const updatedRooms = rooms.filter(room => room.id !== roomId);
-      setRooms(updatedRooms);
+      try {
+        await deleteRoom(roomId);
+      } catch (error) {
+        console.error("Error deleting room:", error);
+        alert(`Failed to delete room: ${error.message}`);
+      }
     }
+  };
+
+  const calculateUtilizationRate = () => {
+    if (!rooms.length) return "0%";
+
+    const today = new Date();
+    const currentMonthEvents = events.filter(event => {
+      const eventDate = new Date(event.event_date);
+      return eventDate.getMonth() === today.getMonth() && eventDate.getFullYear() === today.getFullYear();
+    });
+
+    // Count rooms that have at least one event this month
+    const roomsWithEvents = new Set();
+    currentMonthEvents.forEach(event => {
+      if (event.venue) {
+        roomsWithEvents.add(event.venue);
+      }
+    });
+
+    // Calculate percentage of rooms that have been used
+    const usedRoomsCount = [...roomsWithEvents].filter(venue => rooms.some(room => room.name === venue)).length;
+
+    return Math.min(Math.round((usedRoomsCount / rooms.length) * 100), 100) + "%";
   };
 
   // Reset all filters
@@ -475,11 +525,11 @@ const RoomManagementDashboard = () => {
       title: "Total Rooms",
       value: rooms.length,
       icon: Home,
-      description: `${roomTypes.length} different types`,
+      description: `${roomTypes.length || 0} different types`,
     },
     {
       title: "Total Capacity",
-      value: rooms.reduce((sum, room) => sum + room.capacity, 0),
+      value: rooms.reduce((sum, room) => sum + (room.capacity || 0), 0),
       icon: Users,
       description: "Across all rooms",
     },
@@ -495,7 +545,7 @@ const RoomManagementDashboard = () => {
     },
     {
       title: "Utilization Rate",
-      value: rooms.length > 0 ? Math.round((events.length / rooms.length) * 100) + "%" : "0%",
+      value: calculateUtilizationRate(),
       icon: Activity,
       description: "Room usage efficiency",
     },
@@ -512,6 +562,20 @@ const RoomManagementDashboard = () => {
             Add New Room
           </Button>
         </div>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">Error: </strong>
+            <span className="block sm:inline">{error}</span>
+          </div>
+        )}
+
+        {loading && (
+          <div className="text-center py-4">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]"></div>
+            <p className="mt-2">Loading...</p>
+          </div>
+        )}
 
         {/* Summary Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -607,14 +671,14 @@ const RoomManagementDashboard = () => {
                         <th className="p-3 text-left font-medium">Building</th>
                         <th className="p-3 text-left font-medium">Floor</th>
                         <th className="p-3 text-left font-medium">Capacity</th>
-                        <th className="p-3 text-left font-medium">Status</th>
+                        {/* <th className="p-3 text-left font-medium">Status</th> */}
                         <th className="p-3 text-left font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentRooms.length > 0 ? (
                         currentRooms.map(room => {
-                          const availability = checkRoomAvailability(room.name, new Date());
+                          // const availability = checkRoomAvailability(room.name, new Date());
                           return (
                             <tr key={room.id} className="border-b hover:bg-gray-50">
                               <td className="p-3">{room.name}</td>
@@ -622,11 +686,11 @@ const RoomManagementDashboard = () => {
                               <td className="p-3">{room.building}</td>
                               <td className="p-3">{room.floor}</td>
                               <td className="p-3">{room.capacity}</td>
-                              <td className="p-3">
+                              {/* <td className="p-3">
                                 <Badge variant={availability.available ? "success" : "destructive"}>
                                   {availability.available ? "Available" : "In Use"}
                                 </Badge>
-                              </td>
+                              </td> */}
                               <td className="p-3">
                                 <div className="flex gap-2">
                                   <Button variant="ghost" size="icon" onClick={() => handleEditRoom(room)}>
@@ -643,7 +707,7 @@ const RoomManagementDashboard = () => {
                       ) : (
                         <tr>
                           <td colSpan="7" className="p-3 text-center">
-                            No rooms found with the current filters.
+                            {loading ? "Loading rooms..." : "No rooms found with the current filters."}
                           </td>
                         </tr>
                       )}
@@ -698,7 +762,7 @@ const RoomManagementDashboard = () => {
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start text-left font-normal">
-                          <Calendar className="mr-2 h-4 w-4" />
+                          <CalendarIcon className="mr-2 h-4 w-4" />
                           {availabilityDate ? format(availabilityDate, "PPP") : "Pick a date"}
                         </Button>
                       </PopoverTrigger>
@@ -750,46 +814,55 @@ const RoomManagementDashboard = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRooms.map(room => {
-                        const availability = checkRoomAvailability(room.name, availabilityDate);
-                        return (
-                          <tr key={room.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3">{room.name}</td>
-                            <td className="p-3">{room.room_type}</td>
-                            <td className="p-3">{room.building}</td>
-                            <td className="p-3">{room.capacity}</td>
-                            <td className="p-3">
-                              <Badge variant={availability.available ? "success" : "destructive"}>
-                                {availability.available ? "Available" : "Booked"}
-                              </Badge>
-                            </td>
-                            <td className="p-3">
-                              {availability.events.length > 0 ? (
-                                <div className="space-y-2">
-                                  {availability.events.map(event => (
-                                    <div key={event.id} className="text-xs">
-                                      <div className="font-medium">{event.title}</div>
-                                      <div className="text-gray-500">
-                                        {new Date(event.event_date).toLocaleTimeString([], {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })}{" "}
-                                        -
-                                        {new Date(event.event_end).toLocaleTimeString([], {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                        })}
+                      {filteredRooms.length > 0 ? (
+                        filteredRooms.map(room => {
+                          const availability = checkRoomAvailability(room.name, availabilityDate);
+                          return (
+                            <tr key={room.id} className="border-b hover:bg-gray-50">
+                              <td className="p-3">{room.name}</td>
+                              <td className="p-3">{room.room_type}</td>
+                              <td className="p-3">{room.building}</td>
+                              <td className="p-3">{room.capacity}</td>
+                              <td className="p-3">
+                                <Badge variant={availability.available ? "success" : "destructive"}>
+                                  {availability.available ? "Available" : "Booked"}
+                                </Badge>
+                              </td>
+                              <td className="p-3">
+                                {availability.events.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {availability.events.map(event => (
+                                      <div key={event.id} className="text-xs">
+                                        <div className="font-medium">{event.title}</div>
+                                        <div className="text-gray-500">
+                                          {new Date(event.event_date).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })}{" "}
+                                          -{" "}
+                                          {event.event_end &&
+                                            new Date(event.event_end).toLocaleTimeString([], {
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                            })}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span className="text-gray-500">No events scheduled</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-500">No events scheduled</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="6" className="p-3 text-center">
+                            {loading ? "Loading rooms..." : "No rooms found with the current filters."}
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -873,16 +946,24 @@ const RoomManagementDashboard = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {topUsedRooms.map(room => (
-                          <tr key={room.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3 font-medium">{room.name}</td>
-                            <td className="p-3">{room.room_type}</td>
-                            <td className="p-3">{room.building}</td>
-                            <td className="p-3">{room.capacity}</td>
-                            <td className="p-3">{room.eventCount}</td>
-                            <td className="p-3">{room.attendeeCount}</td>
+                        {topUsedRooms.length > 0 ? (
+                          topUsedRooms.map(room => (
+                            <tr key={room.id} className="border-b hover:bg-gray-50">
+                              <td className="p-3 font-medium">{room.name}</td>
+                              <td className="p-3">{room.room_type}</td>
+                              <td className="p-3">{room.building}</td>
+                              <td className="p-3">{room.capacity}</td>
+                              <td className="p-3">{room.eventCount}</td>
+                              <td className="p-3">{room.attendeeCount}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="6" className="p-3 text-center">
+                              {loading ? "Loading data..." : "No room usage data available."}
+                            </td>
                           </tr>
-                        ))}
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -925,11 +1006,17 @@ const RoomManagementDashboard = () => {
                   <SelectValue placeholder="Select Room Type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roomTypes.map(type => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                  {roomTypes.length > 0 ? (
+                    roomTypes.map(type => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>
+                      No room types available
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -946,11 +1033,17 @@ const RoomManagementDashboard = () => {
                   <SelectValue placeholder="Select Building" />
                 </SelectTrigger>
                 <SelectContent>
-                  {buildings.map(building => (
-                    <SelectItem key={building} value={building}>
-                      {building}
+                  {buildings.length > 0 ? (
+                    buildings.map(building => (
+                      <SelectItem key={building} value={building}>
+                        {building}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="" disabled>
+                      No buildings available
                     </SelectItem>
-                  ))}
+                  )}
                 </SelectContent>
               </Select>
             </div>

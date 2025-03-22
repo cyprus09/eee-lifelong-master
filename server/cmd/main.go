@@ -138,17 +138,15 @@ func main() {
 		}
 
 		// Admin routes
-		admin := protected.Group("/")
+		admin := protected.Group("/admin")
 		admin.Use(middleware.RequireRole("admin"))
 		{			
-			// Room CRUD operations
-			admin.POST("", eventHandler.CreateRoom)
-			admin.GET("/:id", eventHandler.GetRoomById)
-			admin.PUT("/:id", eventHandler.UpdateRoom)
-			admin.DELETE("/:id", eventHandler.DeleteRoom)
-			
-			// Room analytics
-			admin.GET("/analytics", eventHandler.GetRoomAnalytics)	
+				// Room CRUD operations
+				admin.POST("/rooms", eventHandler.CreateRoom)
+				admin.GET("/rooms/:id", eventHandler.GetRoomById)
+				admin.PUT("/rooms/:id", eventHandler.UpdateRoom)
+				admin.DELETE("/rooms/:id", eventHandler.DeleteRoom)
+				admin.GET("/rooms/analytics", eventHandler.GetRoomAnalytics)	
 		}
 	}
 
