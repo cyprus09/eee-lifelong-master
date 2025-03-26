@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, UserPlus, Edit, Trash2, Search, Bell, Shield } from "lucide-react";
+import { Users, Edit, Trash2, Search, Bell, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   Pagination,
@@ -54,7 +53,7 @@ const UserManagementDashboard = () => {
 
   // Batch years and roles for filtering
   const [batchYears, setBatchYears] = useState([]);
-  const roles = ["student", "student leader", "admin"];
+  const roles = ["student", "student_leader", "admin"];
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -392,7 +391,7 @@ const UserManagementDashboard = () => {
     },
     {
       title: "Student Leaders",
-      value: users.filter(user => user.role === "student leader").length,
+      value: users.filter(user => user.role === "student_leader").length,
       icon: Users,
       description: "Student representatives",
     },
@@ -409,7 +408,7 @@ const UserManagementDashboard = () => {
     switch (role) {
       case "admin":
         return "bg-red-100 text-red-800";
-      case "student leader":
+      case "student_leader":
         return "bg-blue-100 text-blue-800";
       case "student":
         return "bg-green-100 text-green-800";
@@ -423,6 +422,87 @@ const UserManagementDashboard = () => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
     return isNaN(date.getTime()) ? "Invalid date" : format(date, "PPpp");
+  };
+
+  // 1. Create a reusable function that generates tab content for any role
+  const RoleTabContent = ({ roleType, roleDisplayName, users, searchTerm, setSearchTerm }) => {
+    // Filter users by role
+    const filteredUsers = users
+      .filter(user => user.role === roleType)
+      .filter(
+        user =>
+          !searchTerm ||
+          (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{roleDisplayName} Accounts</CardTitle>
+          <div className="relative w-full md:w-1/3">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder={`Search ${roleDisplayName.toLowerCase()}...`}
+              className="pl-8"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-gray-50">
+                  <th className="p-3 text-left font-medium">Username</th>
+                  <th className="p-3 text-left font-medium">Email</th>
+                  <th className="p-3 text-left font-medium">Batch Year</th>
+                  <th className="p-3 text-left font-medium">Last Updated</th>
+                  <th className="p-3 text-left font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length > 0 ? (
+                  filteredUsers.map(user => (
+                    <tr key={user.id} className="border-b hover:bg-gray-50">
+                      <td className="p-3">{user.username || "N/A"}</td>
+                      <td className="p-3">{user.email || "N/A"}</td>
+                      <td className="p-3">{user.batch_year || "N/A"}</td>
+                      <td className="p-3">{formatDateTime(user.updated_at)}</td>
+                      <td className="p-3">
+                        <div className="flex gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleEditNotifications(user)}>
+                            <Bell className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDisableUser(user.id)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="p-3 text-center">
+                      No {roleDisplayName.toLowerCase()} accounts found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   return (
@@ -639,78 +719,35 @@ const UserManagementDashboard = () => {
 
         {/* Students Tab */}
         <TabsContent value="students">
-          <Card>
-            <CardHeader>
-              <CardTitle>Student Accounts</CardTitle>
-              <div className="relative w-full md:w-1/3">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-                <Input
-                  placeholder="Search students..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {/* Filtered view for students only */}
-              <div className="rounded-md border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="p-3 text-left font-medium">Username</th>
-                      <th className="p-3 text-left font-medium">Email</th>
-                      <th className="p-3 text-left font-medium">Batch Year</th>
-                      <th className="p-3 text-left font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.filter(user => user.role === "student").length > 0 ? (
-                      users
-                        .filter(user => user.role === "student")
-                        .filter(
-                          user =>
-                            !searchTerm ||
-                            (user.username && user.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                            (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
-                        )
-                        .map(user => (
-                          <tr key={user.id} className="border-b hover:bg-gray-50">
-                            <td className="p-3">{user.username || "N/A"}</td>
-                            <td className="p-3">{user.email || "N/A"}</td>
-                            <td className="p-3">{user.batch_year || "N/A"}</td>
-                            <td className="p-3">
-                              <div className="flex gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => handleEditUser(user)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleEditNotifications(user)}>
-                                  <Bell className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDisableUser(user.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                    ) : (
-                      <tr>
-                        <td colSpan="4" className="p-3 text-center">
-                          No administrator accounts found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <RoleTabContent
+            roleType="student"
+            roleDisplayName="Student"
+            users={users}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
+        </TabsContent>
+
+        {/* Student Leaders Tab */}
+        <TabsContent value="student-leaders">
+          <RoleTabContent
+            roleType="student_leader"
+            roleDisplayName="Student Leader"
+            users={users}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
+        </TabsContent>
+
+        {/* Administrators Tab */}
+        <TabsContent value="admins">
+          <RoleTabContent
+            roleType="admin"
+            roleDisplayName="Administrator"
+            users={users}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
         </TabsContent>
       </Tabs>
 
