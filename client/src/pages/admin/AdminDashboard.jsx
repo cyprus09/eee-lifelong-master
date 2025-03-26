@@ -215,10 +215,8 @@ const RoomManagementDashboard = () => {
         throw new Error("No active session");
       }
   
-      // Log the exact data being sent
-      console.log("Updating room with data:", JSON.stringify(roomData));
-  
-      const response = await fetch(`http://localhost:8080/api/admins/rooms/${roomId}`, {
+      // Update the URL to match the server-side route
+      const response = await fetch(`http://localhost:8080/api/admin/rooms/${roomId}`, {
         method: 'PUT',
         headers: {
           "Authorization": `Bearer ${session.data.session.access_token}`,

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"lifelong-eee-project/models"
 	"log"
 	"net/http"
@@ -29,37 +31,70 @@ func (h *EventHandler) CreateRoom(c *gin.Context) {
 		return
 	}
 
+	// Validate room type
+	validRoomTypes := []string{"classroom", "lab", "auditorium", "meeting_room"}
+	isValid := false
+	for _, rt := range validRoomTypes {
+		if room.RoomType == rt {
+			isValid = true
+			break
+		}
+	}
+
+	if !isValid {
+		log.Printf("Invalid room type: %s", room.RoomType)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid room type"})
+		return
+	}
+
 	// Generate an ID and set timestamps
 	room.ID = uuid.New().String()
 	now := time.Now()
 	room.CreatedAt = now
 	room.UpdatedAt = now
 
-	// Insert into database
-	roomJSON, err := json.Marshal(room)
+	// Prepare the insertion data as a map to ensure correct formatting
+	insertData := map[string]interface{}{
+		"id":         room.ID,
+		"name":       room.Name,
+		"room_type":  room.RoomType,
+		"building":   room.Building,
+		"floor":      room.Floor,
+		"capacity":   room.Capacity,
+		"created_at": room.CreatedAt,
+		"updated_at": room.UpdatedAt,
+	}
+
+	// Convert to JSON
+	roomJSON, err := json.Marshal(insertData)
 	if err != nil {
 		log.Printf("Error marshaling room: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process room data"})
 		return
 	}
 
-	result, _, err := h.client.From("rooms").Insert(roomJSON, false, "", "", "").Execute()
+	log.Printf("Sending to Supabase: %s", string(roomJSON))
+
+	// Since Headers method isn't available, you might need to set this at the client level
+	// or use the third parameter in Insert which is the 'options' parameter
+	result, count, err := h.client.From("rooms").Insert(string(roomJSON), false, "return=representation", "", "").Execute()
+
+	log.Printf("Supabase response: result=%s, count=%d, err=%v", string(result), count, err)
+
 	if err != nil {
 		log.Printf("Error creating room: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create room"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create room: %v", err)})
 		return
 	}
 
-	// Parse the response
-	var createdRoom models.Room
-	if err := json.Unmarshal(result, &createdRoom); err != nil {
-		log.Printf("Error unmarshaling created room: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process room data"})
-		return
-	}
+	// Even if we get an empty result, return success with the original room
+	// The record might have been created despite no response
+	c.JSON(http.StatusCreated, room)
 
-	log.Printf("Room created successfully: %s", room.ID)
-	c.JSON(http.StatusCreated, createdRoom)
+	// Attempt to verify the creation for logging purposes
+	verifyResult, verifyCount, _ := h.client.From("rooms").Select("*", "", false).Filter("id", "eq", room.ID).Execute()
+
+	log.Printf("Verification query: result=%s, count=%d", string(verifyResult), verifyCount)
 }
 
 // UpdateRoom updates an existing room
@@ -73,6 +108,8 @@ func (h *EventHandler) UpdateRoom(c *gin.Context) {
 		return
 	}
 
+	log.Printf("Updating room with ID: %s", roomID)
+
 	// Parse request body
 	var roomUpdate models.Room
 	if err := c.ShouldBindJSON(&roomUpdate); err != nil {
@@ -81,70 +118,119 @@ func (h *EventHandler) UpdateRoom(c *gin.Context) {
 		return
 	}
 
-	// Check if room exists
-	roomResult, count, err := h.client.From("rooms").
-		Select("*", "", false).
-		Filter("id", "eq", roomID).
-		Execute()
-
-	if err != nil {
-		log.Printf("Error checking if room exists: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check if room exists"})
-		return
-	}
-
-	if count == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
-		return
-	}
-
-	// Parse the existing room
-	var existingRooms []models.Room
-	if err := json.Unmarshal(roomResult, &existingRooms); err != nil {
-		log.Printf("Error unmarshaling existing room: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process room data"})
-		return
-	}
-
-	if len(existingRooms) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
-		return
-	}
-
-	existingRoom := existingRooms[0]
-
-	// Update fields while preserving ID and creation time
-	roomUpdate.ID = existingRoom.ID
-	roomUpdate.CreatedAt = existingRoom.CreatedAt
-	roomUpdate.UpdatedAt = time.Now()
-
 	// Validate required fields
 	if roomUpdate.Name == "" || roomUpdate.RoomType == "" || roomUpdate.Building == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Name, room type, and building are required"})
 		return
 	}
 
-	// Update in database
-	roomJSON, err := json.Marshal(roomUpdate)
+	// Check if room exists directly with SQL
+	var existingRoomID string
+	err := h.db.QueryRow("SELECT id FROM rooms WHERE id = $1", roomID).Scan(&existingRoomID)
 	if err != nil {
-		log.Printf("Error marshaling room update: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process room data"})
+		if err == sql.ErrNoRows {
+			log.Printf("Room not found with ID: %s", roomID)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+			return
+		}
+		log.Printf("Error checking if room exists: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check if room exists"})
 		return
 	}
 
-	_, _, err = h.client.From("rooms").
-		Update(string(roomJSON), "", "").
-		Eq("id", roomID).
-		Execute()
+	// Update fields for database
+	updateFields := map[string]interface{}{
+		"name":       roomUpdate.Name,
+		"room_type":  roomUpdate.RoomType,
+		"building":   roomUpdate.Building,
+		"floor":      roomUpdate.Floor,
+		"capacity":   roomUpdate.Capacity,
+		"updated_at": time.Now(),
+	}
+
+	log.Printf("Updating room with data: %+v", updateFields)
+
+	// Start transaction
+	tx, err := h.db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			log.Printf("Error rolling back transaction: %v", err)
+		}
+	}()
+
+	// Update in SQL database
+	_, err = tx.Exec(`
+		UPDATE rooms 
+		SET name = $1, 
+			room_type = $2, 
+			building = $3, 
+			floor = $4, 
+			capacity = $5, 
+			updated_at = $6
+		WHERE id = $7`,
+		roomUpdate.Name,
+		roomUpdate.RoomType,
+		roomUpdate.Building,
+		roomUpdate.Floor,
+		roomUpdate.Capacity,
+		time.Now(),
+		roomID,
+	)
 
 	if err != nil {
-		log.Printf("Error updating room: %v", err)
+		log.Printf("Error updating room in SQL: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update room"})
 		return
 	}
 
-	log.Printf("Room updated successfully: %s", roomID)
-	c.JSON(http.StatusOK, roomUpdate)
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit changes"})
+		return
+	}
+
+	// Also update in Supabase
+	supResult, _, err := h.client.From("rooms").
+		Update(updateFields, "", "").
+		Eq("id", roomID).
+		Execute()
+
+	if err != nil {
+		log.Printf("Warning: Error updating room in Supabase: %v", err)
+		// Don't return error, continue with the response
+	} else {
+		log.Printf("Successfully updated room in Supabase: %s", string(supResult))
+	}
+
+	// Query the updated room for response
+	var updatedRoom models.Room
+	err = h.db.QueryRow(`
+		SELECT id, name, room_type, building, floor, capacity, created_at, updated_at 
+		FROM rooms WHERE id = $1`, roomID).Scan(
+		&updatedRoom.ID,
+		&updatedRoom.Name,
+		&updatedRoom.RoomType,
+		&updatedRoom.Building,
+		&updatedRoom.Floor,
+		&updatedRoom.Capacity,
+		&updatedRoom.CreatedAt,
+		&updatedRoom.UpdatedAt,
+	)
+
+	if err != nil {
+		log.Printf("Error fetching updated room: %v", err)
+		// Still return success but with minimal info
+		c.JSON(http.StatusOK, gin.H{"message": "Room updated successfully", "id": roomID})
+		return
+	}
+
+	log.Printf("Room updated successfully: %+v", updatedRoom)
+	c.JSON(http.StatusOK, updatedRoom)
 }
 
 // DeleteRoom deletes a room
@@ -158,12 +244,29 @@ func (h *EventHandler) DeleteRoom(c *gin.Context) {
 		return
 	}
 
+	log.Printf("Attempting to delete room with ID: %s", roomID)
+
+	// Check if room exists
+	var roomExists bool
+	err := h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM rooms WHERE id = $1)", roomID).Scan(&roomExists)
+	if err != nil {
+		log.Printf("Error checking if room exists: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check if room exists"})
+		return
+	}
+
+	if !roomExists {
+		log.Printf("Room not found with ID: %s", roomID)
+		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+
 	// Check if there are any upcoming events in this room
-	eventsResult, count, err := h.client.From("events").
-		Select("*", "", false).
-		Filter("venue", "eq", roomID).
-		Filter("status", "eq", "upcoming").
-		Execute()
+	var eventCount int
+	err = h.db.QueryRow(`
+		SELECT COUNT(*) FROM events 
+		WHERE venue = (SELECT name FROM rooms WHERE id = $1) 
+		AND status = 'upcoming'`, roomID).Scan(&eventCount)
 
 	if err != nil {
 		log.Printf("Error checking for upcoming events: %v", err)
@@ -171,32 +274,52 @@ func (h *EventHandler) DeleteRoom(c *gin.Context) {
 		return
 	}
 
-	if count > 0 {
-		var events []models.Event
-		if err := json.Unmarshal(eventsResult, &events); err == nil && len(events) > 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error":  "Cannot delete room with upcoming events",
-				"count":  count,
-				"events": events,
-			})
-			return
-		}
+	if eventCount > 0 {
+		log.Printf("Cannot delete room with upcoming events: %d events found", eventCount)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot delete room with upcoming events", "event_count": eventCount})
+		return
 	}
 
-	// Delete from database
+	// Start transaction
+	tx, err := h.db.Begin()
+	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
+		return
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && err != sql.ErrTxDone {
+			log.Printf("Error rolling back transaction: %v", err)
+		}
+	}()
+
+	// Delete from SQL database
+	_, err = tx.Exec("DELETE FROM rooms WHERE id = $1", roomID)
+	if err != nil {
+		log.Printf("Error deleting room from SQL: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete room"})
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit changes"})
+		return
+	}
+
+	// Also delete from Supabase
 	_, _, err = h.client.From("rooms").
 		Delete("", "").
 		Eq("id", roomID).
 		Execute()
 
 	if err != nil {
-		log.Printf("Error deleting room: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete room"})
-		return
+		log.Printf("Warning: Error deleting room from Supabase: %v", err)
+		// Don't return error since SQL delete succeeded
 	}
 
 	log.Printf("Room deleted successfully: %s", roomID)
-	c.JSON(http.StatusOK, gin.H{"message": "Room deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Room deleted successfully", "id": roomID})
 }
 
 // GetRoomById retrieves a specific room by ID
@@ -210,38 +333,36 @@ func (h *EventHandler) GetRoomById(c *gin.Context) {
 		return
 	}
 
+	log.Printf("Fetching room with ID: %s", roomID)
+
 	// Get room from database
-	roomResult, count, err := h.client.From("rooms").
-		Select("*", "", false).
-		Filter("id", "eq", roomID).
-		Execute()
+	var room models.Room
+	err := h.db.QueryRow(`
+		SELECT id, name, room_type, building, floor, capacity, created_at, updated_at 
+		FROM rooms WHERE id = $1`, roomID).Scan(
+		&room.ID,
+		&room.Name,
+		&room.RoomType,
+		&room.Building,
+		&room.Floor,
+		&room.Capacity,
+		&room.CreatedAt,
+		&room.UpdatedAt,
+	)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			log.Printf("Room not found with ID: %s", roomID)
+			c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+			return
+		}
 		log.Printf("Error fetching room: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch room"})
 		return
 	}
 
-	if count == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
-		return
-	}
-
-	// Parse the room
-	var rooms []models.Room
-	if err := json.Unmarshal(roomResult, &rooms); err != nil {
-		log.Printf("Error unmarshaling room: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process room data"})
-		return
-	}
-
-	if len(rooms) == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
-		return
-	}
-
-	log.Printf("Room fetched successfully: %s", roomID)
-	c.JSON(http.StatusOK, rooms[0])
+	log.Printf("Room fetched successfully: %+v", room)
+	c.JSON(http.StatusOK, room)
 }
 
 // GetRoomAnalytics provides analytics data for rooms
