@@ -389,7 +389,7 @@ const RoomManagementDashboard = () => {
     }
 
     setFilteredRooms(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   // Handle room form input changes
@@ -549,7 +549,7 @@ const RoomManagementDashboard = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto space-y-6 my-auto py-8 px-4 w-full">
+      <div className="max-w-7xl mx-auto space-y-6 my-auto py-2 px-4 w-full">
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold">Room Management Dashboard</h1>
           <Button onClick={handleAddRoom} className="flex items-center gap-2">
@@ -691,7 +691,7 @@ const RoomManagementDashboard = () => {
                                   <Button variant="ghost" size="icon" onClick={() => handleEditRoom(room)}>
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteRoom(room.id)}>
+                                  <Button className="text-red-500 hover:text-red-700" variant="ghost" size="icon" onClick={() => handleDeleteRoom(room.id)}>
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>

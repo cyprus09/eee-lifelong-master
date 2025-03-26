@@ -6,12 +6,14 @@ import {
   DialogTitle,
   DialogFooter,
   DialogDescription,
-  DialogClose,
 } from "@/components/ui/dialog";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Clock, MapPin, Users, Share2, Calendar, X, Info } from "lucide-react";
+import { MapPin, Users, Share2, Calendar, Info } from "lucide-react";
+import careerImage from "../../assets/event_types/career.jpg";
+import socialImage from "../../assets/event_types/social.jpg";
+import academicImage from "../../assets/event_types/academic.jpg";
+import culturalImage from "../../assets/event_types/cultural.jpg";
 
 const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen }) => {
   const [isAdditionalInfoOpen, setIsAdditionalInfoOpen] = useState(false);
@@ -40,6 +42,27 @@ const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen 
     return colors[status] || "bg-gray-100 text-gray-800";
   };
 
+  const getEventTypeImage = eventType => {
+    if (!eventType) return null;
+
+    const formattedType = eventType.toString().trim();
+    const capitalizedType = formattedType.charAt(0).toUpperCase() + formattedType.slice(1).toLowerCase();
+
+    switch (capitalizedType) {
+      case "Cultural":
+        return culturalImage;
+      case "Social":
+        return socialImage;
+      case "Academic":
+        return academicImage;
+      case "Career":
+        return careerImage;
+      default:
+        console.log("No matching image for event type:", eventType);
+        return null;
+    }
+  };
+
   const formatEventDate = dateString => {
     if (!dateString || dateString === "0001-01-01T00:00:00Z") {
       return "Date not set";
@@ -64,6 +87,21 @@ const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen 
             </div>
           </div>
           <DialogDescription className="text-base mt-2">{event.description}</DialogDescription>
+          {event.event_type && (
+            <div className="mb-4">
+              {getEventTypeImage(event.event_type) ? (
+                <img
+                  src={getEventTypeImage(event.event_type)}
+                  alt={`${event.event_type} event`}
+                  className="w-full h-48 object-cover rounded-md"
+                />
+              ) : (
+                <div className="w-full h-48 bg-gray-100 flex items-center justify-center rounded-md">
+                  <p className="text-gray-500">No image available for {event.event_type}</p>
+                </div>
+              )}
+            </div>
+          )}
         </DialogHeader>
 
         <div className="space-y-6">
@@ -75,7 +113,9 @@ const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen 
                 <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
                 <div>
                   <p className="font-medium">Date & Time</p>
-                  <p className="text-gray-600">{formatEventDate(event.event_date)} - {formatEventDate(event.event_end)}</p>
+                  <p className="text-gray-600">
+                    {formatEventDate(event.event_date)} - {formatEventDate(event.event_end)}
+                  </p>
                 </div>
               </div>
 
@@ -125,20 +165,6 @@ const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen 
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {/* Event gallery or featured image if available */}
-          {event.images && event.images.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Event Gallery</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {event.images.map((image, index) => (
-                  <div key={index} className="aspect-video bg-gray-100 rounded-md overflow-hidden">
-                    <img src={image} alt={`${event.title} image ${index + 1}`} className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>
