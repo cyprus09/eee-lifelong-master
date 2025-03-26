@@ -4,22 +4,160 @@ import (
 	"database/sql"
 	"lifelong-eee-project/handlers"
 	"lifelong-eee-project/middleware"
+	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-
-	"log"
-	"os"
 )
 
 func init() {
+	// Load environment variables only once
 	if err := godotenv.Load(); err != nil {
-		log.Printf("Error loading .env file: %v", err)
+		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 }
 
+// setupRouter configures and returns the Gin router with all middleware
+func setupRouter(eventHandler *handlers.EventHandler) *gin.Engine {
+	router := gin.Default()
+
+	// Add standard logging
+	router.Use(gin.Logger())
+
+	// CORS middleware
+	router.Use(setupCORS())
+
+	// Custom request logging middleware
+	router.Use(requestLogger())
+
+	// Update past events middleware
+	router.Use(func(c *gin.Context) {
+		eventHandler.UpdatePastEvents()
+		c.Next()
+	})
+
+	return router
+}
+
+// setupCORS returns the CORS middleware configuration
+func setupCORS() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// requestLogger returns a custom logging middleware
+func requestLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		log.Printf("Request: %s %s", c.Request.Method, c.Request.URL.Path)
+		log.Printf("Auth header present: %v", c.GetHeader("Authorization") != "")
+
+		c.Next()
+
+		log.Printf("Response status: %d", c.Writer.Status())
+	}
+}
+
+// setupRoutes configures all the API routes
+func setupRoutes(router *gin.Engine, eventHandler *handlers.EventHandler, auth gin.HandlerFunc) {
+	// Public health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	// All protected routes under /api
+	protected := router.Group("/api")
+	protected.Use(auth)
+
+	// Routes for all authenticated users
+	setupCommonRoutes(protected, eventHandler)
+
+	// Routes for student leaders
+	setupStudentLeaderRoutes(protected, eventHandler)
+
+	// Routes shared between admins and student leaders
+	setupSharedRoutes(protected, eventHandler)
+
+	// Admin-only routes
+	setupAdminRoutes(protected, eventHandler)
+}
+
+// setupCommonRoutes configures routes available to all authenticated users
+func setupCommonRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler) {
+	// Events routes
+	rg.GET("/events", eventHandler.GetEvents)
+
+	// User routes
+	rg.GET("/users/role", func(c *gin.Context) {
+		userRole := c.GetString("userRole")
+		if userRole == "" {
+			c.JSON(400, gin.H{"error": "No role found"})
+			return
+		}
+		log.Printf("Returning role: %s", userRole)
+		c.JSON(200, gin.H{"role": userRole})
+	})
+
+	// Event registration routes
+	rg.POST("/events/:id/register", eventHandler.RegisterForEvent)
+	rg.GET("/events/registered/:userId", eventHandler.GetRegisteredEvents)
+
+	// Room availability for all users
+	rg.GET("/rooms/availability", eventHandler.GetAvailableRooms)
+}
+
+// setupStudentLeaderRoutes configures routes available to student leaders
+func setupStudentLeaderRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler) {
+	studentLeader := rg.Group("/")
+	studentLeader.Use(middleware.RequireRole("student_leader"))
+
+	// Event management endpoints
+	studentLeader.POST("/events", eventHandler.CreateEvent)
+	studentLeader.PUT("/events/:id", eventHandler.EditEvent)
+	studentLeader.PUT("/events/:id/cancel", eventHandler.CancelEvent)
+}
+
+// setupSharedRoutes configures routes shared between admins and student leaders
+func setupSharedRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler) {
+	common := rg.Group("/")
+	common.Use(middleware.RequireRole("admin", "student_leader"))
+
+	// Shared event management
+	common.GET("/events/:id/attendees", eventHandler.GetEventAttendees)
+	common.GET("/events/stats", eventHandler.GetEventStats)
+
+	// Room management (read-only)
+	common.GET("/rooms", eventHandler.GetRooms)
+	common.GET("/rooms/available", eventHandler.GetAvailableRooms)
+}
+
+// setupAdminRoutes configures admin-only routes
+func setupAdminRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler) {
+	admin := rg.Group("/admin")
+	admin.Use(middleware.RequireRole("admin"))
+
+	// Room CRUD operations
+	admin.POST("/rooms", eventHandler.CreateRoom)
+	admin.GET("/rooms/:id", eventHandler.GetRoomById)
+	admin.PUT("/rooms/:id", eventHandler.UpdateRoom)
+	admin.DELETE("/rooms/:id", eventHandler.DeleteRoom)
+	admin.GET("/rooms/analytics", eventHandler.GetRoomAnalytics)
+}
+
 func main() {
+	// Verify required environment variables
 	requiredEnvVars := []string{
 		"SUPABASE_URL",
 		"SUPABASE_SERVICE_ROLE_KEY",
@@ -32,124 +170,24 @@ func main() {
 		}
 	}
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	router := gin.Default()
-
-	// Add logging
-	router.Use(gin.Logger())
-
-	// CORS middleware
-	router.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
-	// Custom logging middleware
-	router.Use(func(c *gin.Context) {
-		log.Printf("Request: %s %s", c.Request.Method, c.Request.URL.Path)
-		log.Printf("Auth header present: %v", c.GetHeader("Authorization") != "")
-
-		c.Next()
-
-		log.Printf("Response status: %d", c.Writer.Status())
-	})
-
+	// Connect to the database
 	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatalf("Error connecting to database: %v", err)
 	}
-
 	defer db.Close()
 
+	// Initialize handlers and middleware
 	eventHandler := handlers.NewEventHandler(db)
 	auth := middleware.AuthMiddleware(db)
 
-	// Update past events middleware
-	router.Use(func(c *gin.Context) {
-		eventHandler.UpdatePastEvents()
-		c.Next()
-	})
+	// Setup router with middleware
+	router := setupRouter(eventHandler)
 
-	// Public routes
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	// Configure all routes
+	setupRoutes(router, eventHandler, auth)
 
-	// Protected routes
-	protected := router.Group("/api")
-	protected.Use(auth)
-	{
-		// Events routes
-		protected.GET("/events", eventHandler.GetEvents)
-
-		// User routes
-		protected.GET("/users/role", func(c *gin.Context) {
-			userRole := c.GetString("userRole")
-			if userRole == "" {
-				c.JSON(400, gin.H{"error": "No role found"})
-				return
-			}
-			log.Printf("Returning role: %s", userRole)
-			c.JSON(200, gin.H{"role": userRole})
-		})
-
-		// Event routes for all authenticated users
-		protected.POST("/events/:id/register", eventHandler.RegisterForEvent)
-		protected.GET("/events/registered/:userId", eventHandler.GetRegisteredEvents)
-
-		// Room routes available to all users
-		protected.GET("/rooms/availability", eventHandler.GetAvailableRooms)
-
-		// Student leader routes
-		studentLeader := protected.Group("/")
-		studentLeader.Use(middleware.RequireRole("student_leader"))
-		{
-			// Event management endpoints
-			studentLeader.POST("/events", eventHandler.CreateEvent)
-			studentLeader.PUT("/events/:id", eventHandler.EditEvent)
-			studentLeader.PUT("/events/:id/cancel", eventHandler.CancelEvent)
-
-		}
-		
-		// Student leader and admin routes
-		common := protected.Group("/")
-		common.Use(middleware.RequireRole("admin", "student_leader"))
-		{
-			// New endpoints for student leader dashboard
-			common.GET("/events/:id/attendees", eventHandler.GetEventAttendees)
-			common.GET("/events/stats", eventHandler.GetEventStats)
-	
-			// Room management
-			common.GET("/rooms", eventHandler.GetRooms)
-			common.GET("/rooms/available", eventHandler.GetAvailableRooms)
-		}
-
-		// Admin routes
-		admin := protected.Group("/admin")
-		admin.Use(middleware.RequireRole("admin"))
-		{			
-				// Room CRUD operations
-				admin.POST("/rooms", eventHandler.CreateRoom)
-				admin.GET("/rooms/:id", eventHandler.GetRoomById)
-				admin.PUT("/rooms/:id", eventHandler.UpdateRoom)
-				admin.DELETE("/rooms/:id", eventHandler.DeleteRoom)
-				admin.GET("/rooms/analytics", eventHandler.GetRoomAnalytics)	
-		}
-	}
-
+	// Start the server
 	log.Printf("Server starting on :8080")
 	if err := router.Run(":8080"); err != nil {
 		log.Fatalf("Server failed to start: %v", err)

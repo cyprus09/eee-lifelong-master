@@ -11,16 +11,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"lifelong-eee-project/models"
 )
-
-type SupabaseUser struct {
-	ID           string `json:"id"`
-	Email        string `json:"email"`
-	UserMetadata struct {
-		Username  string `json:"username"`
-		BatchYear int    `json:"batch_year"`
-	} `json:"user_metadata"`
-}
 
 func AuthMiddleware(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -110,7 +102,7 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 	}
 }
 
-func verifyToken(token string) (*SupabaseUser, error) {
+func verifyToken(token string) (*models.SupabaseUser, error) {
 	token = strings.TrimPrefix(token, "Bearer ")
 
 	supabaseUrl := os.Getenv("SUPABASE_URL")
@@ -139,7 +131,7 @@ func verifyToken(token string) (*SupabaseUser, error) {
 		return nil, fmt.Errorf("invalid token (status %d)", resp.StatusCode)
 	}
 
-	var user SupabaseUser
+	var user models.SupabaseUser
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
 		return nil, fmt.Errorf("error decoding response: %v", err)
 	}
