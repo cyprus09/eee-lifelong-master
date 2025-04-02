@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"github.com/gin-gonic/gin"
 	supa "github.com/supabase-community/supabase-go"
+	"lifelong-eee-project/models"
 	"io"
 )
 
@@ -21,22 +22,6 @@ type UserHandler struct {
 }
 
 // User profile structure matching the profiles table
-type Profile struct {
-	ID                      string          `json:"id"`
-	Role                    string          `json:"role"`
-	UpdatedAt               time.Time       `json:"updated_at"`
-	Username                string          `json:"username"`
-	BatchYear               *int            `json:"batch_year"`
-	NotificationPreferences json.RawMessage `json:"notification_preferences"`
-	Email                   string          `json:"email,omitempty"` // Added from auth.users
-}
-
-// Notification preferences structure
-type NotificationPreferences struct {
-	EventsEnabled  bool     `json:"events_enabled"`
-	EventTypes     []string `json:"event_types"`
-	EmailFrequency string   `json:"email_frequency"`
-}
 
 func NewUserHandler(db *sql.DB) *UserHandler {
 	supabaseUrl := os.Getenv("SUPABASE_URL")
@@ -76,7 +61,7 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 		return
 	}
 
-	var profiles []Profile
+	var profiles []models.Profile
 	if err := json.Unmarshal(profilesResult, &profiles); err != nil {
 		log.Printf("Error unmarshaling profiles: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process profiles data"})
@@ -170,7 +155,7 @@ func (h *UserHandler) GetUser(c *gin.Context) {
 		return
 	}
 
-	var profiles []Profile
+	var profiles []models.Profile
 	if err := json.Unmarshal(result, &profiles); err != nil {
 		log.Printf("Error unmarshaling profile: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process profile data"})
@@ -229,7 +214,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		for _, validRole := range validRoles {
 			if role == validRole {
 				isValidRole = true
-				break
+				break 
 			}
 		}
 
@@ -251,7 +236,7 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	var updatedProfiles []Profile
+	var updatedProfiles []models.Profile
 	if err := json.Unmarshal(result, &updatedProfiles); err != nil {
 		log.Printf("Error unmarshaling updated profile: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process updated profile data"})
@@ -297,7 +282,7 @@ func (h *UserHandler) UpdateNotificationPreferences(c *gin.Context) {
 	}
 
 	var requestData struct {
-		NotificationPreferences NotificationPreferences `json:"notification_preferences"`
+		NotificationPreferences models.NotificationPreferences `json:"notification_preferences"`
 	}
 
 	if err := c.ShouldBindJSON(&requestData); err != nil {
@@ -328,7 +313,7 @@ func (h *UserHandler) UpdateNotificationPreferences(c *gin.Context) {
 		return
 	}
 
-	var updatedProfiles []Profile
+	var updatedProfiles []models.Profile
 	if err := json.Unmarshal(result, &updatedProfiles); err != nil {
 		log.Printf("Error unmarshaling updated profile: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process updated profile data"})

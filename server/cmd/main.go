@@ -13,7 +13,6 @@ import (
 )
 
 func init() {
-	// Load environment variables only once
 	if err := godotenv.Load(); err != nil {
 		log.Printf("Warning: Error loading .env file: %v", err)
 	}
@@ -71,7 +70,7 @@ func requestLogger() gin.HandlerFunc {
 }
 
 // setupRoutes configures all the API routes
-func setupRoutes(router *gin.Engine, eventHandler *handlers.EventHandler, userHandler *handlers.UserHandler, auth gin.HandlerFunc) {
+func setupRoutes(router *gin.Engine, eventHandler *handlers.EventHandler, userHandler *handlers.UserHandler, roomHandler *handlers.RoomHandler, auth gin.HandlerFunc) {
 	// Public health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
@@ -82,7 +81,7 @@ func setupRoutes(router *gin.Engine, eventHandler *handlers.EventHandler, userHa
 	protected.Use(auth)
 
 	// Routes for all authenticated users
-	setupCommonRoutes(protected, eventHandler)
+	setupCommonRoutes(protected, eventHandler, roomHandler)
 
 	// User management routes
 	setupUserRoutes(protected, userHandler)
@@ -91,10 +90,10 @@ func setupRoutes(router *gin.Engine, eventHandler *handlers.EventHandler, userHa
 	setupStudentLeaderRoutes(protected, eventHandler)
 
 	// Routes shared between admins and student leaders
-	setupSharedRoutes(protected, eventHandler)
+	setupSharedRoutes(protected, eventHandler, roomHandler)
 
 	// Admin-only routes
-	setupAdminRoutes(protected, eventHandler, userHandler)
+	setupAdminRoutes(protected, eventHandler, userHandler, roomHandler)
 }
 
 // setupUserRoutes configures routes for user profile management
@@ -105,7 +104,7 @@ func setupUserRoutes(rg *gin.RouterGroup, userHandler *handlers.UserHandler) {
 }
 
 // setupCommonRoutes configures routes available to all authenticated users
-func setupCommonRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler) {
+func setupCommonRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler, roomHandler *handlers.RoomHandler) {
 	// Events routes
 	rg.GET("/events", eventHandler.GetEvents)
 
@@ -125,7 +124,7 @@ func setupCommonRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler)
 	rg.GET("/events/registered/:userId", eventHandler.GetRegisteredEvents)
 
 	// Room availability for all users
-	rg.GET("/rooms/availability", eventHandler.GetAvailableRooms)
+	rg.GET("/rooms/availability", roomHandler.GetAvailableRooms)
 }
 
 // setupStudentLeaderRoutes configures routes available to student leaders
@@ -140,7 +139,7 @@ func setupStudentLeaderRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventH
 }
 
 // setupSharedRoutes configures routes shared between admins and student leaders
-func setupSharedRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler) {
+func setupSharedRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler, roomHandler *handlers.RoomHandler) {
 	common := rg.Group("/")
 	common.Use(middleware.RequireRole("admin", "student_leader"))
 
@@ -149,21 +148,21 @@ func setupSharedRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler)
 	common.GET("/events/stats", eventHandler.GetEventStats)
 
 	// Room management (read-only)
-	common.GET("/rooms", eventHandler.GetRooms)
-	common.GET("/rooms/available", eventHandler.GetAvailableRooms)
+	common.GET("/rooms", roomHandler.GetRooms)
+	common.GET("/rooms/available", roomHandler.GetAvailableRooms)
 }
 
 // setupAdminRoutes configures admin-only routes
-func setupAdminRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler, userHandler *handlers.UserHandler) {
+func setupAdminRoutes(rg *gin.RouterGroup, eventHandler *handlers.EventHandler, userHandler *handlers.UserHandler, roomHandler *handlers.RoomHandler) {
 	admin := rg.Group("/admin")
 	admin.Use(middleware.RequireRole("admin"))
 
 	// Room CRUD operations
-	admin.POST("/rooms", eventHandler.CreateRoom)
-	admin.GET("/rooms/:id", eventHandler.GetRoomById)
-	admin.PUT("/rooms/:id", eventHandler.UpdateRoom)
-	admin.DELETE("/rooms/:id", eventHandler.DeleteRoom)
-	admin.GET("/rooms/analytics", eventHandler.GetRoomAnalytics)
+	admin.POST("/rooms", roomHandler.CreateRoom)
+	admin.GET("/rooms/:id", roomHandler.GetRoomById)
+	admin.PUT("/rooms/:id", roomHandler.UpdateRoom)
+	admin.DELETE("/rooms/:id", roomHandler.DeleteRoom)
+	admin.GET("/rooms/analytics", roomHandler.GetRoomAnalytics)
 
 	// User management operations
 	admin.GET("/users", userHandler.GetUsers)
@@ -195,13 +194,14 @@ func main() {
 	// Initialize handlers and middleware
 	eventHandler := handlers.NewEventHandler(db)
 	userHandler := handlers.NewUserHandler(db)
+	roomHandler := handlers.NewRoomHandler(db)
 	auth := middleware.AuthMiddleware(db)
 
 	// Setup router with middleware
 	router := setupRouter(eventHandler)
 
-	// Configure all routes
-	setupRoutes(router, eventHandler, userHandler, auth)
+	// Setup routes
+	setupRoutes(router, eventHandler, userHandler, roomHandler, auth)
 
 	// Start the server
 	log.Printf("Server starting on :8080")

@@ -11,9 +11,61 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/supabase-community/postgrest-go"
+	supa "github.com/supabase-community/supabase-go"
+	"os"
+	"database/sql"
 )
 
-func (h *EventHandler) GetAvailableRooms(c *gin.Context) {
+type RoomHandler struct {
+	client *supa.Client
+	db     *sql.DB
+}
+
+// NewRoomHandler creates a new RoomHandler instance
+func NewRoomHandler(db *sql.DB) *RoomHandler {
+	supabaseUrl := os.Getenv("SUPABASE_URL")
+	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+	if supabaseUrl == "" || supabaseKey == "" {
+		log.Fatal("Missing required Supabase environment variables")
+	}
+
+	log.Printf("Initializing Supabase client with URL: %s", supabaseUrl)
+
+	client, err := supa.NewClient(supabaseUrl, supabaseKey, nil)
+	if err != nil {
+		log.Fatalf("Error initializing Supabase client: %v", err)
+	}
+
+	handler := &RoomHandler{
+		client: client,
+		db:     db,
+	}
+
+	// Test the connection
+	if err := handler.checkSupabaseConnection(); err != nil {
+		log.Printf("Warning: Supabase connection check failed: %v", err)
+	}
+
+	return handler
+}
+
+// checkSupabaseConnection tests the Supabase connection
+func (h *RoomHandler) checkSupabaseConnection() error {
+	// Try a simple query to test the connection
+	result, _, err := h.client.From("rooms").
+		Select("count", "*", false).
+		Execute()
+
+	if err != nil {
+		return fmt.Errorf("failed to connect to Supabase: %v", err)
+	}
+
+	log.Printf("Supabase connection test result: %v", result)
+	return nil
+}
+
+func (h *RoomHandler) GetAvailableRooms(c *gin.Context) {
 	log.Printf("GetAvailableRooms called with token: %v", c.GetHeader("Authorization") != "")
 
 	// Get query parameters
@@ -148,7 +200,7 @@ func (h *EventHandler) GetAvailableRooms(c *gin.Context) {
 }
 
 // GetRooms returns all rooms without availability information
-func (h *EventHandler) GetRooms(c *gin.Context) {
+func (h *RoomHandler) GetRooms(c *gin.Context) {
 	log.Printf("GetRooms called with token: %v", c.GetHeader("Authorization") != "")
 
 	roomsResult, count, err := h.client.From("rooms").Select("*", "", false).Execute()
