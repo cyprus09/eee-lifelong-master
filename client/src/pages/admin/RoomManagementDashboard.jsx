@@ -170,12 +170,12 @@ const RoomManagementDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-
+  
       const session = await supabase.auth.getSession();
       if (!session.data.session) {
         throw new Error("No active session");
       }
-
+  
       const response = await fetch(`http://localhost:8080/api/admin/rooms`, {
         method: "POST",
         headers: {
@@ -184,15 +184,26 @@ const RoomManagementDashboard = () => {
         },
         body: JSON.stringify(roomData),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to add room");
+  
+      // Read the response body as text
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+  
+      // Parse the text as JSON
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
       }
-
-      const newRoom = await response.json();
-      setRooms(prevRooms => [...prevRooms, newRoom]);
-      return newRoom;
+  
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to add room");
+      }
+  
+      // Now use the parsed data instead of trying to parse the response again
+      setRooms(prevRooms => [...prevRooms, data]);
+      return data;
     } catch (error) {
       console.error("Error adding room:", error);
       setError(error.message);
@@ -207,26 +218,26 @@ const RoomManagementDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const session = await supabase.auth.getSession();
       if (!session.data.session) {
         throw new Error("No active session");
       }
-  
+
       // Update the URL to match the server-side route
       const response = await fetch(`http://localhost:8080/api/admin/rooms/${roomId}`, {
-        method: 'PUT',
+        method: "PUT",
         headers: {
-          "Authorization": `Bearer ${session.data.session.access_token}`,
-          "Content-Type": "application/json"
+          Authorization: `Bearer ${session.data.session.access_token}`,
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(roomData)
+        body: JSON.stringify(roomData),
       });
-  
+
       // Log the raw response for debugging
       const responseText = await response.text();
       console.log("Raw response:", responseText);
-      
+
       // Try to parse the response as JSON
       let data;
       try {
@@ -234,16 +245,13 @@ const RoomManagementDashboard = () => {
       } catch (e) {
         throw new Error(`Invalid JSON response: ${responseText}`);
       }
-  
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to update room");
       }
-  
-      setRooms(prevRooms => 
-        prevRooms.map(room => room.id === roomId ? data : room)
-      );
+
+      setRooms(prevRooms => prevRooms.map(room => (room.id === roomId ? data : room)));
       return data;
-      
     } catch (error) {
       console.error("Error updating room:", error);
       setError(error.message);
@@ -338,15 +346,15 @@ const RoomManagementDashboard = () => {
         const roomsOfType = rooms.filter(room => room.room_type === type);
         const eventsInType = events.filter(event => roomsOfType.some(room => room.name === event.venue));
 
-      return {
-        type,
-        rooms: roomsOfType.length,
-        events: eventsInType.length,
-        utilization: roomsOfType.length > 0 ? Math.round((eventsInType.length / roomsOfType.length) * 100) : 0,
-      };
-    });
-    setRoomTypeDistribution(typeData);
-  }
+        return {
+          type,
+          rooms: roomsOfType.length,
+          events: eventsInType.length,
+          utilization: roomsOfType.length > 0 ? Math.round((eventsInType.length / roomsOfType.length) * 100) : 0,
+        };
+      });
+      setRoomTypeDistribution(typeData);
+    }
 
     // Top used rooms
     const roomUsage = rooms.map(room => {
@@ -406,10 +414,10 @@ const RoomManagementDashboard = () => {
     setCurrentRoom(null);
     setRoomFormData({
       name: "",
+      capacity: "",
       room_type: "",
       building: "",
       floor: "",
-      capacity: "",
     });
     setIsRoomModalOpen(true);
   };
@@ -444,10 +452,10 @@ const RoomManagementDashboard = () => {
     try {
       const processedData = {
         name: roomFormData.name,
+        capacity: parseInt(roomFormData.capacity, 10),
         room_type: roomFormData.room_type,
         building: roomFormData.building,
         floor: parseInt(roomFormData.floor, 10),
-        capacity: parseInt(roomFormData.capacity, 10),
       };
 
       if (currentRoom) {
@@ -691,7 +699,12 @@ const RoomManagementDashboard = () => {
                                   <Button variant="ghost" size="icon" onClick={() => handleEditRoom(room)}>
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button className="text-red-500 hover:text-red-700" variant="ghost" size="icon" onClick={() => handleDeleteRoom(room.id)}>
+                                  <Button
+                                    className="text-red-500 hover:text-red-700"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteRoom(room.id)}
+                                  >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>

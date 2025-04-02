@@ -14,7 +14,7 @@ import (
 )
 
 // CreateRoom creates a new room
-func (h *EventHandler) CreateRoom(c *gin.Context) {
+func (h *RoomHandler) CreateRoom(c *gin.Context) {
 	log.Printf("CreateRoom called with token: %v", c.GetHeader("Authorization") != "")
 
 	// Parse request body
@@ -53,31 +53,11 @@ func (h *EventHandler) CreateRoom(c *gin.Context) {
 	room.CreatedAt = now
 	room.UpdatedAt = now
 
-	// Prepare the insertion data as a map to ensure correct formatting
-	insertData := map[string]interface{}{
-		"id":         room.ID,
-		"name":       room.Name,
-		"room_type":  room.RoomType,
-		"building":   room.Building,
-		"floor":      room.Floor,
-		"capacity":   room.Capacity,
-		"created_at": room.CreatedAt,
-		"updated_at": room.UpdatedAt,
-	}
+	// Log the room creation attempt
+	log.Printf("Attempting to create room: %+v", room)
 
-	// Convert to JSON
-	roomJSON, err := json.Marshal(insertData)
-	if err != nil {
-		log.Printf("Error marshaling room: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process room data"})
-		return
-	}
-
-	log.Printf("Sending to Supabase: %s", string(roomJSON))
-
-	// Since Headers method isn't available, you might need to set this at the client level
-	// or use the third parameter in Insert which is the 'options' parameter
-	result, count, err := h.client.From("rooms").Insert(string(roomJSON), false, "return=representation", "", "").Execute()
+	// Use the same approach as in CreateEvent
+	result, count, err := h.client.From("rooms").Insert(&room, false, "*", "", "*").Execute()
 
 	log.Printf("Supabase response: result=%s, count=%d, err=%v", string(result), count, err)
 
@@ -87,18 +67,26 @@ func (h *EventHandler) CreateRoom(c *gin.Context) {
 		return
 	}
 
-	// Even if we get an empty result, return success with the original room
-	// The record might have been created despite no response
-	c.JSON(http.StatusCreated, room)
+	var createdRooms []models.Room
+	if err := json.Unmarshal(result, &createdRooms); err != nil {
+		log.Printf("Error unmarshaling created room: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process created room"})
+		return
+	}
 
-	// Attempt to verify the creation for logging purposes
-	verifyResult, verifyCount, _ := h.client.From("rooms").Select("*", "", false).Filter("id", "eq", room.ID).Execute()
+	if len(createdRooms) == 0 {
+		log.Printf("No room was created")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "No room was created"})
+		return
+	}
 
-	log.Printf("Verification query: result=%s, count=%d", string(verifyResult), verifyCount)
+	createdRoom := createdRooms[0]
+	log.Printf("Room created successfully with ID: %s", createdRoom.ID)
+	c.JSON(http.StatusCreated, createdRoom)
 }
 
 // UpdateRoom updates an existing room
-func (h *EventHandler) UpdateRoom(c *gin.Context) {
+func (h *RoomHandler) UpdateRoom(c *gin.Context) {
 	log.Printf("UpdateRoom called with token: %v", c.GetHeader("Authorization") != "")
 
 	// Get room ID from URL parameter
@@ -234,7 +222,7 @@ func (h *EventHandler) UpdateRoom(c *gin.Context) {
 }
 
 // DeleteRoom deletes a room
-func (h *EventHandler) DeleteRoom(c *gin.Context) {
+func (h *RoomHandler) DeleteRoom(c *gin.Context) {
 	log.Printf("DeleteRoom called with token: %v", c.GetHeader("Authorization") != "")
 
 	// Get room ID from URL parameter
@@ -323,7 +311,7 @@ func (h *EventHandler) DeleteRoom(c *gin.Context) {
 }
 
 // GetRoomById retrieves a specific room by ID
-func (h *EventHandler) GetRoomById(c *gin.Context) {
+func (h *RoomHandler) GetRoomById(c *gin.Context) {
 	log.Printf("GetRoomById called with token: %v", c.GetHeader("Authorization") != "")
 
 	// Get room ID from URL parameter
@@ -366,7 +354,7 @@ func (h *EventHandler) GetRoomById(c *gin.Context) {
 }
 
 // GetRoomAnalytics provides analytics data for rooms
-func (h *EventHandler) GetRoomAnalytics(c *gin.Context) {
+func (h *RoomHandler) GetRoomAnalytics(c *gin.Context) {
 	log.Printf("GetRoomAnalytics called with token: %v", c.GetHeader("Authorization") != "")
 
 	// First, get all rooms
