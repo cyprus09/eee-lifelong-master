@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Users, Share2, Calendar, Info } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast"
 import careerImage from "../../assets/event_types/career.jpg";
 import socialImage from "../../assets/event_types/social.jpg";
 import academicImage from "../../assets/event_types/academic.jpg";
@@ -18,7 +18,6 @@ import culturalImage from "../../assets/event_types/cultural.jpg";
 
 const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen }) => {
   const [isAdditionalInfoOpen, setIsAdditionalInfoOpen] = useState(false);
-  const { toast } = useToast();
 
   if (!event) return null;
 

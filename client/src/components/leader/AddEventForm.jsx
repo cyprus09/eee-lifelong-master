@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "../../hooks/use-toast";
+import { toast } from "@/hooks/use-toast"
 import { supabase } from "@/lib/supabaseClient";
 import { AlertCircle } from "lucide-react";
 
