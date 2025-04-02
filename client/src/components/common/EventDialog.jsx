@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Users, Share2, Calendar, Info } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 import careerImage from "../../assets/event_types/career.jpg";
 import socialImage from "../../assets/event_types/social.jpg";
 import academicImage from "../../assets/event_types/academic.jpg";
@@ -17,11 +18,63 @@ import culturalImage from "../../assets/event_types/cultural.jpg";
 
 const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen }) => {
   const [isAdditionalInfoOpen, setIsAdditionalInfoOpen] = useState(false);
+  const { toast } = useToast();
 
   if (!event) return null;
 
   const isUpcoming = event.status === "upcoming";
   const isFull = event.current_attendees >= event.max_attendees;
+
+  // Generate a shareable URL for this specific event
+  const generateShareableUrl = () => {
+    // Get the base URL of your site
+    const baseUrl = window.location.origin;
+
+    return `${baseUrl}/events?id=${event.id}`;
+  };
+
+  const handleShare = async () => {
+    const shareUrl = generateShareableUrl();
+    const shareTitle = event.title;
+    const shareText = `Check out this event: ${event.title} - ${event.description?.substring(0, 100)}${
+      event.description?.length > 100 ? "..." : ""
+    }`;
+
+    try {
+      if (navigator.share) {
+        // Use the Web Share API if available (mobile devices)
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+
+        toast({
+          title: "Shared successfully",
+          description: "The event link has been shared.",
+        });
+      } else {
+        // Fallback for desktop browsers
+        await navigator.clipboard.writeText(shareUrl);
+
+        toast({
+          title: "Link copied",
+          description: "Event link copied to clipboard!",
+        });
+      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+
+      // Only show toast for errors that aren't from the user canceling the share
+      if (error.name !== "AbortError") {
+        toast({
+          title: "Share failed",
+          description: "Could not share the event link.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
   const getEventTypeColor = type => {
     const colors = {
@@ -174,24 +227,7 @@ const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen 
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Close
             </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => {
-                if (navigator.share) {
-                  navigator
-                    .share({
-                      title: "EEE Cultural Night",
-                      text: "Annual cultural celebration featuring performances by EEE students and alumni.",
-                      url: window.location.href,
-                    })
-                    .catch(error => console.log("Error sharing:", error));
-                } else {
-                  navigator.clipboard.writeText(window.location.href);
-                  alert("Link copied to clipboard!");
-                }
-              }}
-            >
+            <Button variant="outline" className="gap-2" onClick={handleShare}>
               <Share2 className="h-4 w-4" />
               Share
             </Button>

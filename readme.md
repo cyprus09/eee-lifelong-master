@@ -25,16 +25,20 @@ This platform provides a complete solution for event management with different u
 Directory structure:
 └── eee-lifelong-master/
     ├── readme.md
+    ├── Dockerfile
+    ├── .dockerignore
     ├── client/
     │   ├── README.md
     │   ├── components.json
     │   ├── eslint.config.js
     │   ├── index.html
+    │   ├── package-lock.json
     │   ├── package.json
     │   ├── postcss.config.js
     │   ├── tailwind.config.js
     │   ├── tsconfig.app.json
     │   ├── tsconfig.json
+    │   ├── vercel.json
     │   ├── vite.config.js
     │   ├── .gitignore
     │   ├── public/
@@ -45,7 +49,8 @@ Directory structure:
     │   │   ├── index.css
     │   │   ├── main.jsx
     │   │   ├── assets/
-    │   │   │   └── carousel/
+    │   │   │   ├── carousel/
+    │   │   │   └── event_types/
     │   │   ├── components/
     │   │   │   ├── ProtectedRoute.jsx
     │   │   │   ├── common/
@@ -68,10 +73,13 @@ Directory structure:
     │   │   ├── hooks/
     │   │   │   └── use-toast.tsx
     │   │   ├── lib/
+    │   │   │   ├── supabaseClient.jsx
     │   │   │   └── utils.ts
     │   │   └── pages/
     │   │       ├── admin/
-    │   │       │   └── AdminDashboard.jsx
+    │   │       │   ├── AdminDashboard.jsx
+    │   │       │   ├── RoomManagementDashboard.jsx
+    │   │       │   └── UserManagementDashboard.jsx
     │   │       ├── common/
     │   │       │   ├── HomePage.jsx
     │   │       │   ├── LoginPage.jsx
@@ -80,6 +88,7 @@ Directory structure:
     │   │       │   └── RegisterPage.jsx
     │   │       ├── leader/
     │   │       │   ├── AddEventForm.jsx
+    │   │       │   ├── RoomCalendarView.jsx
     │   │       │   ├── RoomManagementDialog.jsx
     │   │       │   └── StudentLeaderDashboard.jsx
     │   │       └── student/
@@ -111,14 +120,17 @@ Directory structure:
     │   │   ├── auth.go
     │   │   ├── event.go
     │   │   ├── leader_dashboard.go
+    │   │   ├── profile_dashboard.go
+    │   │   ├── room_dashboard.go
     │   │   ├── rooms.go
     │   │   └── student_leader.go
     │   ├── middleware/
     │   │   └── auth.go
     │   └── models/
+    │       ├── auth.go
     │       ├── event.go
-    │       ├── rooms.go
-    │       └── user.go
+    │       ├── profiles.go
+    │       └── rooms.go
     └── sitemaps/
 ```
 

@@ -62,9 +62,6 @@ func (h *EventHandler) CreateEvent(c *gin.Context) {
 	createdEvent := createdEvents[0]
 	log.Printf("Event created successfully with ID: %s", createdEvent.ID)
 	c.JSON(http.StatusCreated, createdEvent)
-
-	log.Printf("Event created successfully with ID: %s", event.ID)
-	c.JSON(http.StatusCreated, event)
 }
 
 func (h *EventHandler) EditEvent(c *gin.Context) {

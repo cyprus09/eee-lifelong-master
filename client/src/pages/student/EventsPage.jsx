@@ -164,7 +164,7 @@ const EventsPage = () => {
   const handleSubmit = async eventData => {
     try {
       const session = await supabase.auth.getSession();
-      const response = await fetch("${apiUrl}/api/events", {
+      const response = await fetch(`${apiUrl}/api/events`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
