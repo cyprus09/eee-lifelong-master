@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,15 @@ import {
   Cell,
 } from "recharts";
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from "date-fns";
+import { ChevronUp, ChevronDown } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 const StudentLeaderDashboard = () => {
   const { user, isStudentLeader, isAdmin } = useAuth();
@@ -85,6 +94,11 @@ const StudentLeaderDashboard = () => {
   const [isEditEventOpen, setIsEditEventOpen] = useState(false);
   const [isExportEventsDialogOpen, setIsExportEventsDialogOpen] = useState(false);
   const [isExportAttendeesDialogOpen, setIsExportAttendeesDialogOpen] = useState(false);
+  const [sortField, setSortField] = useState("fillRate");
+  const [sortDirection, setSortDirection] = useState("desc");
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const eventsPerPage = 5;
 
   // Fetch all events
   const fetchAllEvents = async () => {
@@ -519,6 +533,73 @@ const StudentLeaderDashboard = () => {
     setIsAttendeeDialogOpen(true);
   };
 
+  const SortIndicator = ({ field, sortField, sortDirection }) => {
+    if (sortField !== field) {
+      return (
+        <span className="ml-1 text-gray-400 inline-flex flex-col">
+          <ChevronUp size={12} />
+          <ChevronDown size={12} />
+        </span>
+      );
+    }
+
+    return (
+      <span className="ml-1 text-blue-600 inline-block">
+        {sortDirection === "asc" ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </span>
+    );
+  };
+
+  const handleSort = field => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // New field, default to descending
+      setSortField(field);
+      setSortDirection("desc");
+    }
+
+    setCurrentPage(1);
+  };
+
+  // Create sorted events array with memoization
+  const sortedEvents = useMemo(() => {
+    // Filter events with max_attendees > 0
+    const filteredEvents = allEvents.filter(e => e.max_attendees > 0);
+
+    // Add fill rate calculation to make sorting easier
+    const eventsWithFillRate = filteredEvents.map(event => ({
+      ...event,
+      fillRate: (event.current_attendees / event.max_attendees) * 100,
+    }));
+
+    // Sort the events based on current sort field and direction
+    return [...eventsWithFillRate].sort((a, b) => {
+      let valueA = a[sortField];
+      let valueB = b[sortField];
+
+      // Special case for event_date which needs date parsing
+      if (sortField === "event_date") {
+        valueA = new Date(valueA);
+        valueB = new Date(valueB);
+      }
+
+      // String comparison
+      if (typeof valueA === "string") {
+        valueA = valueA.toLowerCase();
+        valueB = valueB.toLowerCase();
+      }
+
+      // Apply sort direction
+      if (sortDirection === "asc") {
+        return valueA > valueB ? 1 : -1;
+      } else {
+        return valueA < valueB ? 1 : -1;
+      }
+    });
+  }, [allEvents, sortField, sortDirection]);
+
   const renderDashboardOverview = () => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -686,10 +767,12 @@ const StudentLeaderDashboard = () => {
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button onClick={() => setIsAddEventOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Event
-            </Button>
+            {isStudentLeader() && (
+              <Button onClick={() => setIsAddEventOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Event
+              </Button>
+            )}
           </div>
         </div>
 
@@ -799,7 +882,7 @@ const StudentLeaderDashboard = () => {
   const renderRoomsCalendar = () => {
     return (
       <div className="space-y-4">
-        <RoomCalendarView/>
+        <RoomCalendarView />
       </div>
     );
   };
@@ -808,6 +891,19 @@ const StudentLeaderDashboard = () => {
     const eventTypeData = getEventTypeData();
     const registrationTrendData = getRegistrationTrendData();
     const eventPerformanceData = getEventPerformanceData();
+    const totalPages = Math.ceil(sortedEvents.length / eventsPerPage);
+    const indexOfLastEvent = currentPage * eventsPerPage;
+    const indexOfFirstEvent = indexOfLastEvent - eventsPerPage;
+    const currentEvents = sortedEvents.slice(indexOfFirstEvent, indexOfLastEvent);
+
+    // Pagination controls
+    const goToNextPage = () => {
+      setCurrentPage(prev => Math.min(prev + 1, totalPages));
+    };
+
+    const goToPreviousPage = () => {
+      setCurrentPage(prev => Math.max(prev - 1, 1));
+    };
 
     // Colors for pie chart
     const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
@@ -939,57 +1035,93 @@ const StudentLeaderDashboard = () => {
                 </div>
               )}
             </div>
-
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Event</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Registrations</TableHead>
-                  <TableHead>Fill Rate</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("title")}>
+                    Event
+                    <SortIndicator field="title" sortField={sortField} sortDirection={sortDirection} />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("event_type")}>
+                    Type
+                    <SortIndicator field="event_type" sortField={sortField} sortDirection={sortDirection} />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("event_date")}>
+                    Date
+                    <SortIndicator field="event_date" sortField={sortField} sortDirection={sortDirection} />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("event_date")}>
+                    Time
+                    <SortIndicator field="event_date" sortField={sortField} sortDirection={sortDirection} />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("current_attendees")}>
+                    Registrations
+                    <SortIndicator field="current_attendees" sortField={sortField} sortDirection={sortDirection} />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort("fillRate")}>
+                    Fill Rate
+                    <SortIndicator field="fillRate" sortField={sortField} sortDirection={sortDirection} />
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allEvents
-                  .filter(e => e.max_attendees > 0)
-                  .sort((a, b) => b.current_attendees / b.max_attendees - a.current_attendees / a.max_attendees)
-                  .slice(0, 5)
-                  .map(event => (
-                    <TableRow key={event.id}>
-                      <TableCell className="font-medium">{event.title}</TableCell>
-                      <TableCell>
-                        <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
-                      </TableCell>
-                      <TableCell>{formatEventDate(event.event_date)}</TableCell>
-                      <TableCell>{formatEventTime(event.event_date)}</TableCell>
-                      <TableCell>
-                        {event.current_attendees}/{event.max_attendees}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div
-                              className={`h-2.5 rounded-full ${
-                                event.current_attendees / event.max_attendees > 0.8
-                                  ? "bg-green-600"
-                                  : event.current_attendees / event.max_attendees > 0.5
-                                  ? "bg-blue-600"
-                                  : "bg-amber-500"
-                              }`}
-                              style={{ width: `${(event.current_attendees / event.max_attendees) * 100}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-xs w-10 text-right">
-                            {Math.round((event.current_attendees / event.max_attendees) * 100)}%
-                          </span>
+                {currentEvents.map(event => (
+                  <TableRow key={event.id}>
+                    <TableCell className="font-medium">{event.title}</TableCell>
+                    <TableCell>
+                      <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
+                    </TableCell>
+                    <TableCell>{formatEventDate(event.event_date)}</TableCell>
+                    <TableCell>{formatEventTime(event.event_date)}</TableCell>
+                    <TableCell>
+                      {event.current_attendees}/{event.max_attendees}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div
+                            className={`h-2.5 rounded-full ${
+                              event.fillRate > 80
+                                ? "bg-green-600"
+                                : event.fillRate > 50
+                                ? "bg-blue-600"
+                                : "bg-amber-500"
+                            }`}
+                            style={{ width: `${event.fillRate}%` }}
+                          ></div>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        <span className="text-xs w-10 text-right">{Math.round(event.fillRate)}%</span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            {sortedEvents.length > 0 && (
+              <div className="flex items-center justify-between mt-4">
+                <div className="text-sm text-gray-500">
+                  Showing {indexOfFirstEvent + 1} to {Math.min(indexOfLastEvent, sortedEvents.length)} of{" "}
+                  {sortedEvents.length} events
+                </div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm" onClick={goToPreviousPage} disabled={currentPage === 1}>
+                    <span className="ml-1">
+                      <PaginationPrevious size={16} />
+                    </span>
+                  </Button>
+                  <div className="flex items-center justify-center px-3 py-1 rounded text-sm">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <Button variant="outline" size="sm" onClick={goToNextPage} disabled={currentPage === totalPages}>
+                    <span className="mr-1">
+                      <PaginationNext size={16} />
+                    </span>
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
