@@ -170,12 +170,12 @@ const RoomManagementDashboard = () => {
     try {
       setLoading(true);
       setError(null);
-  
+
       const session = await supabase.auth.getSession();
       if (!session.data.session) {
         throw new Error("No active session");
       }
-  
+
       const response = await fetch(`http://localhost:8080/api/admin/rooms`, {
         method: "POST",
         headers: {
@@ -184,11 +184,11 @@ const RoomManagementDashboard = () => {
         },
         body: JSON.stringify(roomData),
       });
-  
+
       // Read the response body as text
       const responseText = await response.text();
       console.log("Raw response:", responseText);
-  
+
       // Parse the text as JSON
       let data;
       try {
@@ -196,11 +196,11 @@ const RoomManagementDashboard = () => {
       } catch (e) {
         throw new Error(`Invalid JSON response: ${responseText}`);
       }
-  
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to add room");
       }
-  
+
       // Now use the parsed data instead of trying to parse the response again
       setRooms(prevRooms => [...prevRooms, data]);
       return data;
