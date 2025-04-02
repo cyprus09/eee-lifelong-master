@@ -46,7 +46,7 @@ const RoomManagementDialog = ({ isOpen, onClose, onRoomSelect, selectedDate = ne
 
       // Include time parameters in the request
       const response = await fetch(
-        `http://localhost:8080/api/rooms/available?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}`,
+        `${apiUrl}/api/rooms/available?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}`,
         {
           headers: {
             Authorization: `Bearer ${session.data.session.access_token}`,

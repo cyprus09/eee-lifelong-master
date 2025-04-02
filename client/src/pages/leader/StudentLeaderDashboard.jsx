@@ -65,6 +65,7 @@ import {
 } from "@/components/ui/pagination";
 
 const StudentLeaderDashboard = () => {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
   const { user, isStudentLeader, isAdmin } = useAuth();
   const [allEvents, setAllEvents] = useState([]);
   const [isAddEventOpen, setIsAddEventOpen] = useState(false);
@@ -111,7 +112,7 @@ const StudentLeaderDashboard = () => {
         throw new Error("No active session");
       }
 
-      const url = `http://localhost:8080/api/events`;
+      const url = `${apiUrl}/api/events`;
       console.log("Fetching all events from:", url);
 
       const response = await fetch(url, {
@@ -190,7 +191,7 @@ const StudentLeaderDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/events/${eventId}/attendees`, {
+      const response = await fetch(`${apiUrl}/api/events/${eventId}/attendees`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
         },
@@ -219,7 +220,7 @@ const StudentLeaderDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/events/registered/${session.data.session.user.id}`, {
+      const response = await fetch(`${apiUrl}/api/events/registered/${session.data.session.user.id}`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
         },
@@ -302,7 +303,7 @@ const StudentLeaderDashboard = () => {
   const handleSubmit = async eventData => {
     try {
       const session = await supabase.auth.getSession();
-      const response = await fetch("http://localhost:8080/api/events", {
+      const response = await fetch("${apiUrl}/api/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -348,7 +349,7 @@ const StudentLeaderDashboard = () => {
   const handleCancelEvent = async eventId => {
     try {
       const session = await supabase.auth.getSession();
-      const response = await fetch(`http://localhost:8080/api/events/${eventId}/cancel`, {
+      const response = await fetch(`${apiUrl}/api/events/${eventId}/cancel`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
@@ -382,7 +383,7 @@ const StudentLeaderDashboard = () => {
       const id = typeof eventId === "string" ? eventId : eventId.id;
 
       const session = await supabase.auth.getSession();
-      const response = await fetch(`http://localhost:8080/api/events/${id}`, {
+      const response = await fetch(`${apiUrl}/api/events/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

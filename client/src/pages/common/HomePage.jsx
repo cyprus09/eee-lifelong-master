@@ -24,6 +24,7 @@ const HomePage = () => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
   useEffect(() => {
     const initPage = async () => {
@@ -45,7 +46,7 @@ const HomePage = () => {
   const handleSubmit = async eventData => {
     try {
       const session = await supabase.auth.getSession();
-      const response = await fetch("http://localhost:8080/api/events", {
+      const response = await fetch("${apiUrl}/api/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -86,7 +87,7 @@ const HomePage = () => {
         throw new Error("No active session");
       }
 
-      const url = `http://localhost:8080/api/events`;
+      const url = `${apiUrl}/api/events`;
       console.log("Fetching all events from:", url);
 
       const response = await fetch(url, {

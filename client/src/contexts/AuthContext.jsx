@@ -7,6 +7,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
   const isStudentLeader = () => {
     return userRole === "student_leader";
@@ -196,7 +197,7 @@ export const AuthProvider = ({ children }) => {
         if (session?.user) {
           setUser(session.user);
           try {
-            const response = await fetch("http://localhost:8080/api/users/role", {
+            const response = await fetch(`${apiUrl}/api/users/role`, {
               headers: {
                 Authorization: `Bearer ${session.access_token}`,
               },
@@ -240,7 +241,7 @@ export const AuthProvider = ({ children }) => {
       if (session?.user) {
         setUser(session.user);
         try {
-          const response = await fetch("http://localhost:8080/api/users/role", {
+          const response = await fetch(`${apiUrl}/api/users/role`, {
             headers: {
               Authorization: `Bearer ${session.access_token}`,
             },

@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { supabase } from "../../lib/supabaseClient";
 
 const UserManagementDashboard = () => {
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
   // State management
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -92,7 +93,7 @@ const UserManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/admin/users`, {
+      const response = await fetch(`${apiUrl}/api/admin/users`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
           "Content-Type": "application/json",
@@ -126,7 +127,7 @@ const UserManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/admin/users/${userId}`, {
+      const response = await fetch(`${apiUrl}/api/admin/users/${userId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
@@ -165,7 +166,7 @@ const UserManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/admin/users/${userId}/notifications`, {
+      const response = await fetch(`${apiUrl}/api/admin/users/${userId}/notifications`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
@@ -331,7 +332,7 @@ const UserManagementDashboard = () => {
           throw new Error("No active session");
         }
 
-        const response = await fetch(`http://localhost:8080/api/admin/users/${userId}/disable`, {
+        const response = await fetch(`${apiUrl}/api/admin/users/${userId}/disable`, {
           method: "PUT",
           headers: {
             Authorization: `Bearer ${session.data.session.access_token}`,

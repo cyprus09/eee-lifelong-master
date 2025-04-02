@@ -43,7 +43,7 @@ func setupRouter(eventHandler *handlers.EventHandler) *gin.Engine {
 // setupCORS returns the CORS middleware configuration
 func setupCORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
@@ -71,6 +71,11 @@ func requestLogger() gin.HandlerFunc {
 
 // setupRoutes configures all the API routes
 func setupRoutes(router *gin.Engine, eventHandler *handlers.EventHandler, userHandler *handlers.UserHandler, roomHandler *handlers.RoomHandler, auth gin.HandlerFunc) {
+
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "message": "API is running"})
+	})
+
 	// Public health check endpoint
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})

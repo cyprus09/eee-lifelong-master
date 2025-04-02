@@ -69,6 +69,7 @@ const RoomManagementDashboard = () => {
   // Room types and buildings for filtering (will be extracted from fetched data)
   const [roomTypes, setRoomTypes] = useState([]);
   const [buildings, setBuildings] = useState([]);
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
   // Fetch rooms and events on component mount
   useEffect(() => {
@@ -106,7 +107,7 @@ const RoomManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/rooms`, {
+      const response = await fetch(`${apiUrl}/api/rooms`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
           "Content-Type": "application/json",
@@ -140,7 +141,7 @@ const RoomManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const url = `http://localhost:8080/api/events`;
+      const url = `${apiUrl}/api/events`;
       console.log("Fetching all events from:", url);
 
       const response = await fetch(url, {
@@ -176,7 +177,7 @@ const RoomManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/admin/rooms`, {
+      const response = await fetch(`:8080/api/admin/rooms`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
@@ -225,7 +226,7 @@ const RoomManagementDashboard = () => {
       }
 
       // Update the URL to match the server-side route
-      const response = await fetch(`http://localhost:8080/api/admin/rooms/${roomId}`, {
+      const response = await fetch(`${apiUrl}/api/admin/rooms/${roomId}`, {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
@@ -272,7 +273,7 @@ const RoomManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/admin/rooms/${roomId}`, {
+      const response = await fetch(`${apiUrl}/api/admin/rooms/${roomId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,

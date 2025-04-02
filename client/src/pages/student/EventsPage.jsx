@@ -28,6 +28,7 @@ const EventsPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [activeTab, setActiveTab] = useState("upcoming");
   const [selectedEventType, setSelectedEventType] = useState("all");
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
   // Fetch all events once
   const fetchAllEvents = async () => {
@@ -40,7 +41,7 @@ const EventsPage = () => {
         throw new Error("No active session");
       }
 
-      const url = `http://localhost:8080/api/events`;
+      const url = `${apiUrl}/api/events`;
       console.log("Fetching all events from:", url);
 
       const response = await fetch(url, {
@@ -74,7 +75,7 @@ const EventsPage = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/events/registered/${session.data.session.user.id}`, {
+      const response = await fetch(`${apiUrl}/api/events/registered/${session.data.session.user.id}`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
         },
@@ -128,7 +129,7 @@ const EventsPage = () => {
   const handleRegister = async eventId => {
     try {
       const session = await supabase.auth.getSession();
-      const response = await fetch(`http://localhost:8080/api/events/${eventId}/register`, {
+      const response = await fetch(`${apiUrl}/api/events/${eventId}/register`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
@@ -163,7 +164,7 @@ const EventsPage = () => {
   const handleSubmit = async eventData => {
     try {
       const session = await supabase.auth.getSession();
-      const response = await fetch("http://localhost:8080/api/events", {
+      const response = await fetch("${apiUrl}/api/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -294,7 +295,9 @@ const EventsPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-2 text-gray-600">
                 <Clock className="h-4 w-4" />
-                <span>{formatEventTime(event.event_date)} - {formatEventTime(event.event_end)}</span>
+                <span>
+                  {formatEventTime(event.event_date)} - {formatEventTime(event.event_end)}
+                </span>
               </div>
               <div className="flex items-center gap-2 text-gray-600">
                 <MapPin className="h-4 w-4" />

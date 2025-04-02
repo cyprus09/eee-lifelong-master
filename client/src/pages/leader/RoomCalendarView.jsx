@@ -13,7 +13,7 @@ import { supabase } from "../../lib/supabaseClient";
 
 const RoomCalendarView = () => {
   // State for selected date and view
-  const {isStudentLeader} = useAuth();
+  const { isStudentLeader } = useAuth();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarView, setCalendarView] = useState("week");
   const [rooms, setRooms] = useState([]);
@@ -27,6 +27,7 @@ const RoomCalendarView = () => {
   const [roomTypeFilter, setRoomTypeFilter] = useState("all");
   const [minCapacityFilter, setMinCapacityFilter] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
+  const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
   // Room booking time selection
   const [startTime, setStartTime] = useState("09:00");
@@ -82,7 +83,7 @@ const RoomCalendarView = () => {
         throw new Error("No active session");
       }
 
-      const url = `http://localhost:8080/api/events`;
+      const url = `${apiUrl}/api/events`;
       console.log("Fetching all events from:", url);
 
       const response = await fetch(url, {
@@ -115,7 +116,7 @@ const RoomCalendarView = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`http://localhost:8080/api/rooms`, {
+      const response = await fetch(`${apiUrl}/api/rooms`, {
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
         },
@@ -148,7 +149,7 @@ const RoomCalendarView = () => {
 
       // Include time parameters in the request
       const response = await fetch(
-        `http://localhost:8080/api/rooms/available?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}`,
+        `${apiUrl}/api/rooms/available?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}`,
         {
           headers: {
             Authorization: `Bearer ${session.data.session.access_token}`,
@@ -384,7 +385,7 @@ const RoomCalendarView = () => {
   const handleSubmit = async eventData => {
     try {
       const session = await supabase.auth.getSession();
-      const response = await fetch("http://localhost:8080/api/events", {
+      const response = await fetch("${apiUrl}/api/events", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -968,7 +969,9 @@ const RoomCalendarView = () => {
 
       {selectedEvent && <EventDetailDialog />}
       <RoomSelectionDialog />
-      {isStudentLeader() && <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />}
+      {isStudentLeader() && (
+        <AddEventForm isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} onSubmit={handleSubmit} />
+      )}
     </div>
   );
 };
