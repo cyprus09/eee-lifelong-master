@@ -10,6 +10,8 @@ import AddEventForm from "../../components/leader/AddEventForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "../../lib/supabaseClient";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 const RoomCalendarView = () => {
   // State for selected date and view
@@ -147,9 +149,21 @@ const RoomCalendarView = () => {
 
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
 
+      const localStartDateTime = new Date(`${formattedDate}T${startTime}`);
+      const localEndDateTime = new Date(`${formattedDate}T${endTime}`);
+      // Get UTC hours and minutes
+      const utcStartHour = localStartDateTime.getUTCHours().toString().padStart(2, "0");
+      const utcStartMinute = localStartDateTime.getUTCMinutes().toString().padStart(2, "0");
+      const utcEndHour = localEndDateTime.getUTCHours().toString().padStart(2, "0");
+      const utcEndMinute = localEndDateTime.getUTCMinutes().toString().padStart(2, "0");
+
+      // Format the times
+      const utcStartTime = `${utcStartHour}:${utcStartMinute}`;
+      const utcEndTime = `${utcEndHour}:${utcEndMinute}`;
+
       // Include time parameters in the request
       const response = await fetch(
-        `${apiUrl}/api/rooms/available?date=${formattedDate}&start_time=${startTime}&end_time=${endTime}`,
+        `http://localhost:8080/api/rooms/available?date=${formattedDate}&start_time=${utcStartTime}&end_time=${utcEndTime}`,
         {
           headers: {
             Authorization: `Bearer ${session.data.session.access_token}`,
@@ -336,14 +350,17 @@ const RoomCalendarView = () => {
     // Ensure we're only looking at the time portion for the selected day
     const startHour = startTime.getHours();
     const startMinute = startTime.getMinutes();
+    const endHour = endTime.getHours();
+    const endMinute = endTime.getMinutes();
 
     // Calculate position in the grid (our grid starts at 8 AM, index 0)
     const startPosition = (startHour - 8) * 2 + (startMinute >= 30 ? 1 : 0);
 
-    // Calculate duration in 30-minute slots
-    const durationMs = endTime - startTime;
-    const durationMinutes = durationMs / (1000 * 60);
-    const slotSpan = Math.max(1, Math.ceil(durationMinutes / 30));
+    // Calculate duration in 30-minute slots more accurately
+    const durationHours = endHour - startHour;
+    const durationMinutes = endMinute - startMinute;
+    const totalMinutes = durationHours * 60 + durationMinutes;
+    const slotSpan = Math.max(1, Math.ceil(totalMinutes / 30));
 
     return { startPosition, slotSpan };
   };
@@ -354,19 +371,24 @@ const RoomCalendarView = () => {
     setIsRoomDialogOpen(false);
 
     if (isAddEventOpen) {
+      // Convert local times to UTC when preparing for event creation
+      const localDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+
+      // Start time in local timezone
+      const startParts = startTime.split(":").map(Number);
+      const localStartDate = new Date(localDate);
+      localStartDate.setHours(startParts[0], startParts[1]);
+
+      // End time in local timezone
+      const endParts = endTime.split(":").map(Number);
+      const localEndDate = new Date(localDate);
+      localEndDate.setHours(endParts[0], endParts[1]);
+
       setEventFormData(prev => ({
         ...prev,
         venue: room.name,
-        event_date: room.selectedTimeSlot
-          ? new Date(
-              selectedDate.getFullYear(),
-              selectedDate.getMonth(),
-              selectedDate.getDate(),
-              parseInt(room.selectedTimeSlot.startTime.split(":")[0]),
-              parseInt(room.selectedTimeSlot.startTime.split(":")[1])
-            ).toISOString()
-          : prev.event_date,
-        end_time: room.selectedTimeSlot ? room.selectedTimeSlot.endTime : prev.end_time,
+        event_date: localStartDate.toISOString(), // This converts to UTC
+        event_end: localEndDate.toISOString(), // This converts to UTC
       }));
     } else {
       setIsAddEventOpen(true);
@@ -478,7 +500,16 @@ const RoomCalendarView = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Date</label>
-              <div className="border rounded-md p-2 mt-1 text-sm">{format(selectedDate, "MMMM d, yyyy")}</div>
+              <input
+                type="date"
+                className="w-full border border-input rounded-md p-2 mt-1 text-sm bg-background focus:ring-1 focus:ring-ring"
+                value={format(selectedDate, "yyyy-MM-dd")}
+                onChange={e => {
+                  const newDate = new Date(e.target.value);
+                  setSelectedDate(newDate);
+                }}
+                min={format(new Date(), "yyyy-MM-dd")}
+              />
             </div>
             <div>
               <label className="text-sm font-medium">Room Type</label>
@@ -711,7 +742,6 @@ const RoomCalendarView = () => {
   const renderWeekView = () => {
     const days = generateCalendarDays();
     const formattedEvents = formatEvents(allEvents);
-
     return (
       <div className="flex flex-col h-full">
         <div className="grid grid-cols-7 text-center py-2 border-b">
@@ -745,7 +775,7 @@ const RoomCalendarView = () => {
                               className="absolute left-0 right-0 ml-1 mr-1 rounded p-1 overflow-hidden cursor-pointer"
                               style={{
                                 top: "0",
-                                height: `${slotSpan * 2}rem`,
+                                height: `${slotSpan * 3}rem`,
                                 backgroundColor: event.color,
                                 opacity: event.status === "cancelled" ? 0.5 : 1,
                                 zIndex: 10,
@@ -933,10 +963,6 @@ const RoomCalendarView = () => {
             <MapPin className="h-4 w-4 mr-2" />
             Select Room
           </Button>
-          {/* <Button variant="default">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter Options
-          </Button> */}
         </div>
       </div>
 

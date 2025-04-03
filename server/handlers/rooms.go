@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"time"
 
+	"database/sql"
 	"github.com/gin-gonic/gin"
-	"github.com/supabase-community/postgrest-go"
 	supa "github.com/supabase-community/supabase-go"
 	"os"
-	"database/sql"
+	"strings"
 )
 
 type RoomHandler struct {
@@ -75,14 +75,7 @@ func (h *RoomHandler) GetAvailableRooms(c *gin.Context) {
 		return
 	}
 
-	// Parse the date
-	// requestedDate, err := time.Parse("2006-01-02", date)
-	// if err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format"})
-	// 	return
-	// }
-
-	// Get time parameters (optional, default to full day)
+	// Get time parameters
 	startTime := c.Query("start_time")
 	endTime := c.Query("end_time")
 
@@ -94,7 +87,7 @@ func (h *RoomHandler) GetAvailableRooms(c *gin.Context) {
 		endTime = "23:59"
 	}
 
-	// Parse capacity filter (optional)
+	// Capacity filter
 	minCapacity := 0
 	var err error
 	if capacityStr := c.Query("min_capacity"); capacityStr != "" {
@@ -110,13 +103,15 @@ func (h *RoomHandler) GetAvailableRooms(c *gin.Context) {
 	log.Printf("Fetching rooms with filters: date=%s, time=%s-%s, minCapacity=%d, roomType=%s",
 		date, startTime, endTime, minCapacity, roomType)
 
+	// First, get all rooms
 	roomsQuery := h.client.From("rooms").Select("*", "", false)
 
+	// Add filters only if needed
 	if minCapacity > 0 {
 		roomsQuery = roomsQuery.Filter("capacity", "gte", fmt.Sprint(minCapacity))
 	}
 
-	if roomType != "" {
+	if roomType != "" && roomType != "all" {
 		roomsQuery = roomsQuery.Filter("room_type", "eq", roomType)
 	}
 
@@ -131,7 +126,6 @@ func (h *RoomHandler) GetAvailableRooms(c *gin.Context) {
 	var rooms []models.Room
 	if err := json.Unmarshal(roomsResult, &rooms); err != nil {
 		log.Printf("Error unmarshaling rooms: %v", err)
-		log.Printf("JSON being unmarshaled: %s", string(roomsResult))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process rooms data"})
 		return
 	}
@@ -139,51 +133,69 @@ func (h *RoomHandler) GetAvailableRooms(c *gin.Context) {
 	startDateTime := fmt.Sprintf("%sT%s:00Z", date, startTime)
 	endDateTime := fmt.Sprintf("%sT%s:00Z", date, endTime)
 
-	log.Printf("Fetching events for time range: %s to %s", startDateTime, endDateTime)
+	log.Printf("Checking availability for time range: %s to %s", startDateTime, endDateTime)
 
+	// Get all events for this day that might overlap with our request
 	eventsQuery := h.client.From("events").
 		Select("*", "", false).
-		Filter("status", "eq", "upcoming").
-		Order("event_date", &postgrest.OrderOpts{Ascending: true})
+		Filter("status", "eq", "upcoming")
 
-	// This is a complex time range query
-	// Need to fetch events that overlap with our desired time slot:
-	// 1. Events starting on our date
-	// 2. Events already in progress during our time window
-	eventsQuery = eventsQuery.Or(fmt.Sprintf("event_date.gte.%s,event_date.lt.%s",
-		startDateTime, endDateTime), "")
-	eventsResult, _, err := eventsQuery.Execute()
+	// This is the key improvement - properly get events that overlap with our time slot
+	dateOnly := strings.Split(date, "T")[0]
+	dayStart := fmt.Sprintf("%sT00:00:00Z", dateOnly)
+	dayEnd := fmt.Sprintf("%sT23:59:59Z", dateOnly)
+
+	// Get all events for this day first
+	eventsQuery = eventsQuery.Filter("event_date", "gte", dayStart)
+	eventsQuery = eventsQuery.Filter("event_date", "lt", dayEnd)
+
+	eventsResult, eventCount, err := eventsQuery.Execute()
 	if err != nil {
 		log.Printf("Error fetching events: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events"})
 		return
 	}
 
+	log.Printf("Found %d events for day %s", eventCount, dateOnly)
+
 	var events []models.Event
 	if err := json.Unmarshal(eventsResult, &events); err != nil {
 		log.Printf("Error unmarshaling events: %v", err)
-		log.Printf("JSON being unmarshaled: %s", string(eventsResult))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process events data"})
 		return
 	}
 
-	// Create a map of booked rooms
+	// Parse requested times once
+	requestedStartTime, _ := time.Parse(time.RFC3339, startDateTime)
+	requestedEndTime, _ := time.Parse(time.RFC3339, endDateTime)
+
+	// Create a map of booked rooms based on time overlap
 	bookedRooms := make(map[string]bool)
+
 	for _, event := range events {
-		// Check if this event overlaps with the requested time slot
 		eventTime := event.EventDate
+		eventEndTime := event.EventEnd
 
-		// We consider an event to be 2 hours long by default if duration is not specified
-		// This can be modified to use the actual event duration once that field is added
-		eventEndTime := eventTime.Add(2 * time.Hour)
+		// Use simple, reliable overlap check
+		hasOverlap := eventTime.Before(requestedEndTime) && eventEndTime.After(requestedStartTime)
 
-		requestedStartTime, _ := time.Parse(time.RFC3339, startDateTime)
-		requestedEndTime, _ := time.Parse(time.RFC3339, endDateTime)
-
-		// Check for overlap
-		if (eventTime.Before(requestedEndTime) || eventTime.Equal(requestedEndTime)) &&
-			(eventEndTime.After(requestedStartTime) || eventEndTime.Equal(requestedStartTime)) {
+		if hasOverlap {
 			bookedRooms[event.Venue] = true
+			log.Printf("Room %s is booked: Event %s (%v to %v) overlaps with requested time (%v to %v)",
+				event.Venue,
+				event.Title,
+				eventTime.Format("15:04"),
+				eventEndTime.Format("15:04"),
+				requestedStartTime.Format("15:04"),
+				requestedEndTime.Format("15:04"))
+		} else {
+			log.Printf("Room %s event %s (%v to %v) does NOT overlap with requested time (%v to %v)",
+				event.Venue,
+				event.Title,
+				eventTime.Format("15:04"),
+				eventEndTime.Format("15:04"),
+				requestedStartTime.Format("15:04"),
+				requestedEndTime.Format("15:04"))
 		}
 	}
 
@@ -192,6 +204,8 @@ func (h *RoomHandler) GetAvailableRooms(c *gin.Context) {
 	for _, room := range rooms {
 		if !bookedRooms[room.Name] {
 			availableRooms = append(availableRooms, room)
+		} else {
+			log.Printf("Filtering out booked room: %s", room.Name)
 		}
 	}
 
