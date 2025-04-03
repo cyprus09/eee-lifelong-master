@@ -286,6 +286,45 @@ const StudentLeaderDashboard = () => {
     }
   };
 
+  // Handle event creation
+  const handleSubmit = async eventData => {
+    try {
+      const session = await supabase.auth.getSession();
+      const response = await fetch(`${apiUrl}/api/events`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          ...eventData,
+          status: "upcoming",
+          venue: selectedRoom?.name || eventData.venue,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create event");
+      }
+
+      // Refresh events after creating a new one
+      await fetchAllEvents();
+      setIsAddEventOpen(false);
+
+      toast({
+        title: "Success!",
+        description: "Event created successfully.",
+      });
+    } catch (error) {
+      console.error("Error creating event:", error);
+      toast({
+        title: "Event creation failed",
+        description: "There was a problem creating the event. Please try again.",
+      });
+    }
+  };
+
   const handleEditEvent = async (eventId, eventData) => {
     try {
       setLoading(true);
@@ -514,6 +553,7 @@ const StudentLeaderDashboard = () => {
           setEventFormData(null);
           setSelectedRoom(null);
         }}
+        onSubmit={handleSubmit} 
         onSuccess={fetchAllEvents}
       />
 

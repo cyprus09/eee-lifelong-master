@@ -23,7 +23,7 @@ This platform provides a complete solution for event management with different u
 
 ```
 Directory structure:
-└── eee-lifelong-master/
+└── cyprus09-eee-lifelong-master/
     ├── readme.md
     ├── Dockerfile
     ├── .dockerignore
@@ -87,7 +87,10 @@ Directory structure:
     │   │       │   ├── ProfilePage.jsx
     │   │       │   └── RegisterPage.jsx
     │   │       ├── leader/
-    │   │       │   ├── AddEventForm.jsx
+    │   │       │   ├── AddEventFormDeprecated.jsx
+    │   │       │   ├── DashboardOverview.jsx
+    │   │       │   ├── EventAnalytics.jsx
+    │   │       │   ├── EventManagement.jsx
     │   │       │   ├── RoomCalendarView.jsx
     │   │       │   ├── RoomManagementDialog.jsx
     │   │       │   └── StudentLeaderDashboard.jsx
@@ -140,7 +143,18 @@ Directory structure:
 
 - Node.js (v16+)
 - Go (v1.18+)
-- MySQL or PostgreSQL
+- PostgreSQL
+- Supabase account
+
+### Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```bash
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+DATABASE_URL=postgres://username@localhost:5432/database_name
+```
 
 ### Frontend Setup
 
@@ -184,50 +198,74 @@ mysql -u username -p database_name < db/sample_events.sql
 
 - Registration and login
 - Protected routes
-- Role-based access control (Admin, Leader, User)
+- Role-based access control (Admin, Student Leader, User)
 
 ### Event Management
 
 - Browse available events
 - Register for events
-- Create and manage events (Admin/Leader)
+- Create and manage events (Admin/Student Leader)
 - Cancel registrations
 
 ### Room Management
 
 - Room booking and availability
 - Room capacity tracking
+- Room analytics (Admin)
 
 ### Admin Dashboard
 
 - User management
 - Event oversight
-- System configuration
+- Room management
 
 ## API Endpoints
 
+### Public Endpoints
+
+- `GET /` - API Status check
+- `GET /health` - API Health check
+
 ### Authentication
 
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login a user
-- `GET /api/auth/profile` - Get user profile
+- JWT Authentication is implemented via supabase middleware
 
-### Events
+### Common Endpoints (All Authenticated Users)
 
 - `GET /api/events` - List all events
-- `POST /api/events` - Create a new event (Admin/Leader)
-- `GET /api/events/:id` - Get event details
-- `PUT /api/events/:id` - Update event (Admin/Leader)
-- `DELETE /api/events/:id` - Delete event (Admin/Leader)
+- `GET /api/users/role` - Get current user's role
 - `POST /api/events/:id/register` - Register for an event
-- `DELETE /api/events/:id/register` - Cancel registration
+- `GET /api/events/registered/:userId` - Get user's registered events
+- `GET /api/rooms/availability` - Check room availability
 
-### Rooms
+### User Profile Management
 
+- `GET /api/users/:id` - Get user profile
+- `PUT /api/users/:id/notifications` - Update notification preferences
+
+### Student Leader Endpoints
+
+- `POST /api/events` - Create a new event
+- `PUT /api/events/:id` - Update event details
+- `PUT /api/events/:id/cancel` - Cancel an event
+
+### Shared Endpoints (Admin and Student Leaders)
+
+- `GET /api/events/:id/attendees` - Get event attendees
+- `GET /api/events/stats` - Get event statistics
 - `GET /api/rooms` - List all rooms
-- `POST /api/rooms` - Create a new room (Admin)
-- `PUT /api/rooms/:id` - Update room details (Admin)
-- `DELETE /api/rooms/:id` - Delete a room (Admin)
+- `GET /api/rooms/available` - Get available rooms
+
+### Admin Endpoints
+
+- `POST /api/admin/rooms` - Create a new room
+- `GET /api/admin/rooms/:id` - Get room details
+- `PUT /api/admin/rooms/:id` - Update room details
+- `DELETE /api/admin/rooms/:id` - Delete a room
+- `GET /api/admin/rooms/analytics` - Get room usage analytics
+- `GET /api/admin/users` - List all users
+- `PUT /api/admin/users/:id` - Update user details
+- `PUT /api/admin/users/:id/disable` - Disable a user account
 
 ## Development
 
@@ -265,3 +303,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Go](https://golang.org/) - Backend language
 - [React](https://reactjs.org/) - Frontend framework
 - [Tailwind CSS](https://tailwindcss.com/) - CSS framework
+- [Supabase](https://supabase.io/) - Backend-as-a-Service
+- [Gin](https://gin-gonic.com/) - Go web framework

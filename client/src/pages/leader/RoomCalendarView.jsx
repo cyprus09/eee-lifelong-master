@@ -163,7 +163,7 @@ const RoomCalendarView = () => {
 
       // Include time parameters in the request
       const response = await fetch(
-        `http://localhost:8080/api/rooms/available?date=${formattedDate}&start_time=${utcStartTime}&end_time=${utcEndTime}`,
+        `${apiUrl}/api/rooms/available?date=${formattedDate}&start_time=${utcStartTime}&end_time=${utcEndTime}`,
         {
           headers: {
             Authorization: `Bearer ${session.data.session.access_token}`,
