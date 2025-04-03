@@ -8,11 +8,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "@/hooks/use-toast"
+import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { AlertCircle } from "lucide-react";
 
-const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
+const AddEventForm = ({ isOpen, onClose, onSubmit, onSuccess }) => {
   const { isStudentLeader } = useAuth();
 
   const apiUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
@@ -181,6 +181,15 @@ const AddEventForm = ({ isOpen, onClose, onSubmit }) => {
         max_attendees: "",
         description: "",
         status: "upcoming",
+      });
+
+      // Call the success callback to refresh the list
+      if (onSuccess) onSuccess();
+
+      // Show success toast
+      toast({
+        title: "Success!",
+        description: "Event created successfully.",
       });
     } catch (error) {
       console.error("Error submitting form:", error);
