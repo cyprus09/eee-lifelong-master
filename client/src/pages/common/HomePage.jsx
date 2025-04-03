@@ -97,8 +97,6 @@ const HomePage = () => {
         },
       });
 
-      // console.log(session.data.session.access_token);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -116,7 +114,7 @@ const HomePage = () => {
     name: user?.user_metadata?.full_name || "User Name",
     batch: user?.user_metadata?.batch || "2021-2025",
     course: user?.user_metadata?.course || "Electrical Engineering",
-    friends: user?.user_metadata?.friends_count || 0,
+    // friends: user?.user_metadata?.friends_count || 0,
     avatar: user?.user_metadata?.avatar_url,
     role: userRole,
   };
@@ -129,6 +127,18 @@ const HomePage = () => {
       Cultural: "bg-yellow-100 text-yellow-800",
     };
     return colors[type] || "bg-gray-200 text-gray-800";
+  };
+
+  const formatEventDate = dateString => {
+    if (!dateString || dateString === "0001-01-01T00:00:00Z") {
+      return "Date not set";
+    }
+    return new Date(dateString).toLocaleDateString("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
 
   return (
@@ -168,14 +178,14 @@ const HomePage = () => {
           <Card>
             <CardContent className="p-6">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                {/* <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Users className="w-4 h-4 text-primary" />
                     <span>Friends</span>
                   </div>
                   <Badge variant="secondary">{userProfile.friends}</Badge>
-                </div>
-                <Separator />
+                </div> */}
+                {/* <Separator /> */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <GraduationCap className="w-4 h-4 text-primary" />
@@ -261,14 +271,10 @@ const HomePage = () => {
                       <div>
                         <p className="font-medium">{event.title}</p>
                         <p className="text-sm text-muted-foreground">
-                          {event.date
-                            ? isNaN(new Date(event.date.replace(" ", "T")).getTime())
-                              ? "Invalid Date"
-                              : new Date(event.date.replace(" ", "T")).toLocaleDateString()
-                            : "Date Not Available"}
+                        {event.venue} - {formatEventDate(event.event_date)}
                         </p>
                       </div>
-                      <Badge className={getEventTypeColor(event.type)}>{event.type}</Badge>
+                      <Badge className={getEventTypeColor(event.event_type)}>{event.event_type}</Badge>
                     </div>
                   ))
                 ) : (

@@ -29,7 +29,8 @@ const EventDetailsDialog = ({ isOpen, setIsOpen, event, setIsRegisterDialogOpen 
     // Get the base URL of your site
     const baseUrl = window.location.origin;
 
-    return `${baseUrl}/events?id=${event.id}`;
+    // return `${baseUrl}/events?id=${event.id}`;
+    return `${baseUrl}/events`;
   };
 
   const handleShare = async () => {
