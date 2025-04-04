@@ -177,7 +177,7 @@ const RoomManagementDashboard = () => {
         throw new Error("No active session");
       }
 
-      const response = await fetch(`:8080/api/admin/rooms`, {
+      const response = await fetch(`${apiUrl}/api/admin/rooms`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session.data.session.access_token}`,
