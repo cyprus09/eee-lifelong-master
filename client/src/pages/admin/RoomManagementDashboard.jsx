@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/pagination";
 import { format } from "date-fns";
 import { supabase } from "../../lib/supabaseClient";
+import TopUtilizedRooms from "@/components/admin/TopUtilizedRooms";
 
 const RoomManagementDashboard = () => {
   // State management
@@ -82,7 +83,7 @@ const RoomManagementDashboard = () => {
     applyFilters();
   }, [searchTerm, roomTypeFilter, buildingFilter, capacityFilter, rooms]);
 
-  // Create analytics data when rooms and events are available
+  // Generate analytics data when rooms and events are available
   useEffect(() => {
     if (rooms.length > 0 && events.length > 0) {
       generateAnalyticsData();
@@ -356,8 +357,7 @@ const RoomManagementDashboard = () => {
       });
       setRoomTypeDistribution(typeData);
     }
-
-    // Top used rooms
+    // Top utilized rooms
     const roomUsage = rooms.map(room => {
       const roomEvents = events.filter(event => event.venue === room.name);
       return {
@@ -367,7 +367,8 @@ const RoomManagementDashboard = () => {
       };
     });
 
-    setTopUsedRooms(roomUsage.sort((a, b) => b.eventCount - a.eventCount).slice(0, 5));
+    // Store the complete room utilization data, not sliced to just 5
+    setTopUsedRooms(roomUsage);
   };
 
   // Apply filters to the rooms list
@@ -937,47 +938,7 @@ const RoomManagementDashboard = () => {
               </Card>
 
               {/* Top Used Rooms */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top Utilized Rooms</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b bg-gray-50">
-                          <th className="p-3 text-left font-medium">Room Name</th>
-                          <th className="p-3 text-left font-medium">Type</th>
-                          <th className="p-3 text-left font-medium">Building</th>
-                          <th className="p-3 text-left font-medium">Capacity</th>
-                          <th className="p-3 text-left font-medium">Total Events</th>
-                          <th className="p-3 text-left font-medium">Total Attendees</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {topUsedRooms.length > 0 ? (
-                          topUsedRooms.map(room => (
-                            <tr key={room.id} className="border-b hover:bg-gray-50">
-                              <td className="p-3 font-medium">{room.name}</td>
-                              <td className="p-3">{room.room_type}</td>
-                              <td className="p-3">{room.building}</td>
-                              <td className="p-3">{room.capacity}</td>
-                              <td className="p-3">{room.eventCount}</td>
-                              <td className="p-3">{room.attendeeCount}</td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="6" className="p-3 text-center">
-                              {loading ? "Loading data..." : "No room usage data available."}
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
+              <TopUtilizedRooms topUsedRooms={topUsedRooms} loading={loading} />
             </div>
           </TabsContent>
         </Tabs>

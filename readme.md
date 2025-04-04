@@ -53,6 +53,8 @@ Directory structure:
     │   │   │   └── event_types/
     │   │   ├── components/
     │   │   │   ├── ProtectedRoute.jsx
+    │   │   │   ├── admin/
+    │   │   │   │   ├── TopUtilizedRooms.jsx
     │   │   │   ├── common/
     │   │   │   │   ├── CancelDialog.jsx
     │   │   │   │   ├── CarouselSlides.jsx
