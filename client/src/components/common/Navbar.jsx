@@ -62,9 +62,6 @@ const Navbar = () => {
           <li className={isActive("/") ? "text-primary font-medium" : ""}>
             <Link to="/">Home</Link>
           </li>
-          <li className={isActive("#faqs") ? "text-primary font-medium" : ""}>
-            <Link to="#faqs">FAQs</Link>
-          </li>
           <li className={isActive("/events") ? "text-primary font-medium" : ""}>
             <Link to="/events" className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
@@ -120,9 +117,6 @@ const Navbar = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <Link to="#faqs" className="w-full">
-                    FAQs
-                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Link to="/events" className="w-full flex items-center gap-2">
