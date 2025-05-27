@@ -12,6 +12,7 @@ import NotFoundPage from "./pages/common/NotFoundPage";
 import { Toaster } from "./components/ui/sonner";
 import StudentLeaderDashboard from "./pages/leader/StudentLeaderDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import { Analytics } from "@vercel/analytics/next"
 
 export default function App() {
   return (
@@ -74,6 +75,7 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
           <Toaster />
+          <Analytics/>
       </AuthProvider>
     </BrowserRouter>
   );
